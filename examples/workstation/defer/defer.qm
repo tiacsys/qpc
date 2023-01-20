@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<model version="5.2.4" links="1">
+<model version="5.3.0" links="1">
  <documentation>&quot;Deferred Event&quot; state pattern example</documentation>
  <!--${qpc}-->
  <framework name="qpc"/>
@@ -46,8 +46,8 @@ QTimeEvt_ctorX(&amp;me-&gt;authorizedEvt, &amp;me-&gt;super, AUTHORIZED_SIG, 0U)
    <statechart properties="0x03">
     <!--${Components::TServer::SM::initial}-->
     <initial target="../1">
-     <action>(void)par; /* unused parameter */
-me-&gt;activeRequest = (RequestEvt const *)0; /* no active request yet */
+     <action>(void)par; // unused parameter
+me-&gt;activeRequest = (RequestEvt const *)0; // no active request yet
 
 
 QS_OBJ_DICTIONARY(&amp;TServer_inst);
@@ -62,7 +62,7 @@ QS_OBJ_DICTIONARY(&amp;TServer_inst.requestQueue);</action>
     <state name="idle">
      <entry brief="recall">PRINTF_S(&quot;%s\n&quot;, &quot;idle-ENTRY;&quot;);
 
-/* recall the oldest deferred request... */
+// recall the oldest deferred request...
 if (QActive_recall(&amp;me-&gt;super, &amp;me-&gt;requestQueue)) {
     PRINTF_S(&quot;%s\n&quot;, &quot;Request recalled&quot;);
 }
@@ -71,10 +71,9 @@ else {
 }</entry>
      <!--${Components::TServer::SM::idle::NEW_REQUEST}-->
      <tran trig="NEW_REQUEST" target="../../2/2">
-      <action>/* create and save a new reference to the request event so that
-* this event will be available beyond this RTC step and won't be
-* recycled.
-*/
+      <action>// create and save a new reference to the request event so that
+// this event will be available beyond this RTC step and won't be
+// recycled.
 Q_NEW_REF(me-&gt;activeRequest, RequestEvt);
 
 PRINTF_S(&quot;Processing request #%d\n&quot;,
@@ -98,19 +97,18 @@ PRINTF_S(&quot;Processing request #%d\n&quot;,
      <exit>PRINTF_S(&quot;busy-EXIT; done processing request #%d\n&quot;,
        (int)me-&gt;activeRequest-&gt;ref_num);
 
-/* delete the reference to the active request, because
-* it is now processed.
-*/
+// delete the reference to the active request because
+// it is now processed.
 Q_DELETE_REF(me-&gt;activeRequest);</exit>
      <!--${Components::TServer::SM::busy::NEW_REQUEST}-->
      <tran trig="NEW_REQUEST">
-      <action brief="defer">/* defer the new request event... */
+      <action brief="defer">// defer the new request event...
 if (QActive_defer(&amp;me-&gt;super, &amp;me-&gt;requestQueue, e)) {
     PRINTF_S(&quot;Request #%d deferred;\n&quot;,
            (int)Q_EVT_CAST(RequestEvt)-&gt;ref_num);
 }
 else {
-    /* notify the request sender that his request was denied... */
+    // notify the request sender that his request was denied...
     PRINTF_S(&quot;Request #%d IGNORED;\n&quot;,
            (int)Q_EVT_CAST(RequestEvt)-&gt;ref_num);
 }</action>
@@ -126,11 +124,11 @@ else {
      </tran>
      <!--${Components::TServer::SM::busy::receiving}-->
      <state name="receiving">
-      <entry>/* inform about the first stage of processing of the request... */
+      <entry>// inform about the first stage of processing of the request...
 PRINTF_S(&quot;receiving-ENTRY; active request: #%d\n&quot;,
        (int)me-&gt;activeRequest-&gt;ref_num);
 
-/* one-shot timeout in 1 second */
+// one-shot timeout in 1 second
 QTimeEvt_armX(&amp;me-&gt;receivedEvt, BSP_TICKS_PER_SEC, 0U);</entry>
       <exit>QTimeEvt_disarm(&amp;me-&gt;receivedEvt);</exit>
       <!--${Components::TServer::SM::busy::receiving::RECEIVED}-->
@@ -146,11 +144,11 @@ QTimeEvt_armX(&amp;me-&gt;receivedEvt, BSP_TICKS_PER_SEC, 0U);</entry>
      </state>
      <!--${Components::TServer::SM::busy::authorizing}-->
      <state name="authorizing">
-      <entry>/* inform about the second stage of processing of the request.. */
+      <entry>// inform about the second stage of processing of the request..
 PRINTF_S(&quot;authorizing-ENTRY; active request: #%d\n&quot;,
        (int)me-&gt;activeRequest-&gt;ref_num);
 
-/* one-shot timeout in 2 seconds */
+// one-shot timeout in 2 seconds
 QTimeEvt_armX(&amp;me-&gt;authorizedEvt, 2U*BSP_TICKS_PER_SEC, 0U);</entry>
       <exit>QTimeEvt_disarm(&amp;me-&gt;authorizedEvt);</exit>
       <!--${Components::TServer::SM::busy::authorizing::AUTHORIZED}-->
@@ -171,7 +169,7 @@ QTimeEvt_armX(&amp;me-&gt;authorizedEvt, 2U*BSP_TICKS_PER_SEC, 0U);</entry>
     <!--${Components::TServer::SM::final}-->
     <state name="final">
      <entry brief="stop">PRINTF_S(&quot;%s\n&quot;, &quot;final-ENTRY;&quot;);
-            QF_stop(); /* terminate the application */</entry>
+            QF_stop(); // terminate the application</entry>
      <state_glyph node="2,88,30,10">
       <entry box="1,2,6,2"/>
      </state_glyph>
@@ -187,80 +185,79 @@ QTimeEvt_armX(&amp;me-&gt;authorizedEvt, 2U*BSP_TICKS_PER_SEC, 0U);</entry>
    <text>#include &quot;qpc.h&quot;
 #include &quot;bsp.h&quot;
 
-#include &quot;safe_std.h&quot; /* portable &quot;safe&quot; &lt;stdio.h&gt;/&lt;string.h&gt; facilities */
+#include &quot;safe_std.h&quot; // portable &quot;safe&quot; &lt;stdio.h&gt;/&lt;string.h&gt; facilities
 
-Q_DEFINE_THIS_FILE
+//Q_DEFINE_THIS_FILE
 
-/*..........................................................................*/
+//..........................................................................
 enum TServerSignals {
-    NEW_REQUEST_SIG = Q_USER_SIG, /* the new request signal */
-    RECEIVED_SIG,                 /* the request has been received */
-    AUTHORIZED_SIG,               /* the request has been authorized */
-    TERMINATE_SIG                 /* terminate the application */
+    NEW_REQUEST_SIG = Q_USER_SIG, // the new request signal
+    RECEIVED_SIG,                 // the request has been received
+    AUTHORIZED_SIG,               // the request has been authorized
+    TERMINATE_SIG                 // terminate the application
 };
-/*..........................................................................*/
+//..........................................................................
 $declare${Events::RequestEvt}
 
-/* Active object class -----------------------------------------------------*/
+// Active object class -----------------------------------------------------
 $declare${Components::TServer}
 
 $define${Components::TServer}
 
-// test harness ============================================================*/
+// test harness ============================================================
 
 // Local-scope objects -------------------------------------------------------
-static QEvt const *l_tserverQSto[10]; /* Event queue storage for TServer */
-static QF_MPOOL_EL(RequestEvt) l_smlPoolSto[20]; /* storage for small pool */
+static QEvt const *l_tserverQSto[10]; // Event queue storage for TServer
+static QF_MPOOL_EL(RequestEvt) l_smlPoolSto[20]; // storage for small pool
 
-/*..........................................................................*/
+//..........................................................................
 int main(int argc, char *argv[]) {
     PRINTF_S(&quot;Deferred Event state pattern\nQP version: %s\n&quot;
            &quot;Press 'n' to generate a new request\n&quot;
            &quot;Press ESC to quit...\n&quot;,
            QP_VERSION_STR);
 
-    QF_init(); /* initialize the framework and the underlying RTOS/OS */
+    QF_init(); // initialize the framework and the underlying RTOS/OS
 
-    BSP_init(argc, argv); /* initialize the BSP */
+    BSP_init(argc, argv); // initialize the BSP
 
-    /* publish-subscribe not used, no call to QF_psInit() */
+    // publish-subscribe not used, no call to QF_psInit()
 
-    /* initialize event pools... */
+    // initialize event pools...
     QF_poolInit(l_smlPoolSto, sizeof(l_smlPoolSto), sizeof(l_smlPoolSto[0]));
 
-    QS_SIG_DICTIONARY(NEW_REQUEST_SIG, (void *)0); /* global signals */
+    QS_SIG_DICTIONARY(NEW_REQUEST_SIG, (void *)0); // global signals
     QS_SIG_DICTIONARY(RECEIVED_SIG,    (void *)0);
     QS_SIG_DICTIONARY(AUTHORIZED_SIG,  (void *)0);
     QS_SIG_DICTIONARY(TERMINATE_SIG,   (void *)0);
 
-    /* start the active objects... */
+    // start the active objects...
     TServer_ctor(&amp;TServer_inst);
     QACTIVE_START((QActive *)&amp;TServer_inst,
                   1U,
                   l_tserverQSto, Q_DIM(l_tserverQSto),
                   (void *)0, 0U, (void *)0);
 
-    return QF_run(); /* run the QF application */
+    return QF_run(); // run the QF application
 }
-/*..........................................................................*/
+//..........................................................................
 void BSP_onKeyboardInput(uint8_t key) {
     switch (key) {
-        case 'n': {  /* 'n': new request? */
-            static uint8_t reqCtr = 0; /* count the requests */
+        case 'n': {  // 'n': new request?
+            static uint8_t reqCtr = 0; // count the requests
             RequestEvt *e = Q_NEW(RequestEvt, NEW_REQUEST_SIG);
-            e-&gt;ref_num = (++reqCtr); /* set the reference number */
-            /* post directly to TServer active object */
+            e-&gt;ref_num = (++reqCtr); // set the reference number
+            // post directly to TServer active object
             QACTIVE_POST((QActive *)&amp;TServer_inst, (QEvt *)e, (void *)0);
             break;
         }
-        case '\33': { /* ESC pressed? */
-            static QEvt const terminateEvt = { TERMINATE_SIG, 0U, 0U };
+        case '\33': { // ESC pressed?
+            static QEvt const terminateEvt = QEVT_INITIALIZER(TERMINATE_SIG);
             QACTIVE_POST((QActive *)&amp;TServer_inst, &amp;terminateEvt, (void *)0);
             break;
         }
     }
-}
-</text>
+}</text>
   </file>
  </directory>
 </model>

@@ -28,7 +28,7 @@
 -------------------------- END-OF-HEADER -----------------------------
 Purpose : Initializes and handles the hardware for embOS
 */
-/* modified by Quantum Leaps:
+// modified by Quantum Leaps:
 * commented out OS_Idle() to allow for costomization in the BSP
 */
 
@@ -247,7 +247,7 @@ void OS_InitHW(void) {
 *    functionality should be implemented that relies on the stack
 *    to be preserved.
 */
-/* Quantum Leaps:
+// Quantum Leaps:
   commented out OS_Idle() to allow for costomization in the BSP
 
 void OS_Idle(void) {  // Idle loop: No task is ready to execute

@@ -1,7 +1,7 @@
 /*============================================================================
 * Product: System test fixture for QK kernel
-* Last updated for version 7.2.0
-* Last updated on  2022-12-22
+* Last Updated for Version: 7.3.0
+* Date of the Last Update:  2023-06-30
 *
 *                    Q u a n t u m  L e a P s
 *                    ------------------------
@@ -34,7 +34,7 @@
 #include "qpc.h"
 #include "bsp.h"
 
-Q_DEFINE_THIS_FILE
+//Q_DEFINE_THIS_FILE
 
 /*==========================================================================*/
 /* AO ObjB */
@@ -71,7 +71,7 @@ QState ObjB_active(ObjB * const me, QEvt const * const e) {
             break;
         }
         case TEST1_SIG: {
-            static QEvt const t2 = { TEST2_SIG, 0U, 0U };
+            static QEvt const t2 = QEVT_INITIALIZER(TEST2_SIG);
             BSP_trace(&me->super, "TEST1 1of2");
             QACTIVE_PUBLISH(&t2, &me->super);
             BSP_trace(&me->super, "TEST1 2of2");

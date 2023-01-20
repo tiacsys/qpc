@@ -313,7 +313,7 @@
           </ArmAdsMisc>
           <Cads>
             <interw>0</interw>
-            <Optim>7</Optim>
+            <Optim>1</Optim>
             <oTime>0</oTime>
             <SplitLS>0</SplitLS>
             <OneElfS>1</OneElfS>
@@ -361,7 +361,7 @@
             </VariousControls>
           </Aads>
           <LDads>
-            <umfTarg>1</umfTarg>
+            <umfTarg>0</umfTarg>
             <Ropi>0</Ropi>
             <Rwpi>0</Rwpi>
             <noStLib>0</noStLib>
@@ -370,7 +370,7 @@
             <TextAddressRange>0x00000000</TextAddressRange>
             <DataAddressRange>0x20000000</DataAddressRange>
             <pXoBase></pXoBase>
-            <ScatterFile></ScatterFile>
+            <ScatterFile>.\dpp-qxk.sct</ScatterFile>
             <IncludeLibs></IncludeLibs>
             <IncludeLibsPath></IncludeLibsPath>
             <Misc>--entry Reset_Handler</Misc>
@@ -404,11 +404,6 @@
               <FilePath>..\..\philo.c</FilePath>
             </File>
             <File>
-              <FileName>README.txt</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\..\README.txt</FilePath>
-            </File>
-            <File>
               <FileName>table.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\table.c</FilePath>
@@ -416,7 +411,7 @@
             <File>
               <FileName>qstamp.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\include\qstamp.c</FilePath>
+              <FilePath>..\..\..\..\..\src\qs\qstamp.c</FilePath>
             </File>
             <File>
               <FileName>main.c</FileName>
@@ -497,11 +492,6 @@
               <FileName>qf_mem.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\src\qf\qf_mem.c</FilePath>
-            </File>
-            <File>
-              <FileName>qf_pkg.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\..\..\..\..\src\qf_pkg.h</FilePath>
             </File>
             <File>
               <FileName>qf_ps.c</FileName>
@@ -675,13 +665,13 @@
       <TargetName>dpp-rel</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
-      <pCCUsed>5060020::V5.06 (build 20)::ARMCC</pCCUsed>
+      <pCCUsed>6160000::V6.16::ARMCLANG</pCCUsed>
       <uAC6>1</uAC6>
       <TargetOption>
         <TargetCommonOption>
           <Device>STM32L152RE</Device>
           <Vendor>STMicroelectronics</Vendor>
-          <PackID>Keil.STM32L1xx_DFP.1.0.2</PackID>
+          <PackID>Keil.STM32L1xx_DFP.1.4.1</PackID>
           <PackURL>http://www.keil.com/pack/</PackURL>
           <Cpu>IROM(0x08000000,0x80000) IRAM(0x20000000,0x14000) CPUTYPE("Cortex-M3") CLOCK(12000000) ELITTLE</Cpu>
           <FlashUtilSpec></FlashUtilSpec>
@@ -1026,7 +1016,7 @@
             </VariousControls>
           </Aads>
           <LDads>
-            <umfTarg>1</umfTarg>
+            <umfTarg>0</umfTarg>
             <Ropi>0</Ropi>
             <Rwpi>0</Rwpi>
             <noStLib>0</noStLib>
@@ -1035,7 +1025,7 @@
             <TextAddressRange>0x00000000</TextAddressRange>
             <DataAddressRange>0x20000000</DataAddressRange>
             <pXoBase></pXoBase>
-            <ScatterFile>dpp-qxk.sct</ScatterFile>
+            <ScatterFile>.\dpp-qxk.sct</ScatterFile>
             <IncludeLibs></IncludeLibs>
             <IncludeLibsPath></IncludeLibsPath>
             <Misc>--entry Reset_Handler</Misc>
@@ -1069,11 +1059,6 @@
               <FilePath>..\..\philo.c</FilePath>
             </File>
             <File>
-              <FileName>README.txt</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\..\README.txt</FilePath>
-            </File>
-            <File>
               <FileName>table.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\table.c</FilePath>
@@ -1081,7 +1066,7 @@
             <File>
               <FileName>qstamp.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\include\qstamp.c</FilePath>
+              <FilePath>..\..\..\..\..\src\qs\qstamp.c</FilePath>
             </File>
             <File>
               <FileName>main.c</FileName>
@@ -1162,11 +1147,6 @@
               <FileName>qf_mem.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\src\qf\qf_mem.c</FilePath>
-            </File>
-            <File>
-              <FileName>qf_pkg.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\..\..\..\..\src\qf_pkg.h</FilePath>
             </File>
             <File>
               <FileName>qf_ps.c</FileName>
@@ -1340,13 +1320,13 @@
       <TargetName>dpp-spy</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
-      <pCCUsed>6130001::V6.13.1::.\ARMCLANG</pCCUsed>
+      <pCCUsed>6160000::V6.16::ARMCLANG</pCCUsed>
       <uAC6>1</uAC6>
       <TargetOption>
         <TargetCommonOption>
           <Device>STM32L152RE</Device>
           <Vendor>STMicroelectronics</Vendor>
-          <PackID>Keil.STM32L1xx_DFP.1.0.2</PackID>
+          <PackID>Keil.STM32L1xx_DFP.1.4.1</PackID>
           <PackURL>http://www.keil.com/pack/</PackURL>
           <Cpu>IROM(0x08000000,0x80000) IRAM(0x20000000,0x14000) CPUTYPE("Cortex-M3") CLOCK(12000000) ELITTLE</Cpu>
           <FlashUtilSpec></FlashUtilSpec>
@@ -1643,7 +1623,7 @@
           </ArmAdsMisc>
           <Cads>
             <interw>0</interw>
-            <Optim>7</Optim>
+            <Optim>1</Optim>
             <oTime>0</oTime>
             <SplitLS>0</SplitLS>
             <OneElfS>1</OneElfS>
@@ -1691,7 +1671,7 @@
             </VariousControls>
           </Aads>
           <LDads>
-            <umfTarg>1</umfTarg>
+            <umfTarg>0</umfTarg>
             <Ropi>0</Ropi>
             <Rwpi>0</Rwpi>
             <noStLib>0</noStLib>
@@ -1700,7 +1680,7 @@
             <TextAddressRange>0x00000000</TextAddressRange>
             <DataAddressRange>0x20000000</DataAddressRange>
             <pXoBase></pXoBase>
-            <ScatterFile>dpp-qxk.sct</ScatterFile>
+            <ScatterFile>.\dpp-qxk.sct</ScatterFile>
             <IncludeLibs></IncludeLibs>
             <IncludeLibsPath></IncludeLibsPath>
             <Misc>--entry Reset_Handler</Misc>
@@ -1734,11 +1714,6 @@
               <FilePath>..\..\philo.c</FilePath>
             </File>
             <File>
-              <FileName>README.txt</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\..\README.txt</FilePath>
-            </File>
-            <File>
               <FileName>table.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\table.c</FilePath>
@@ -1746,7 +1721,7 @@
             <File>
               <FileName>qstamp.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\..\..\..\..\include\qstamp.c</FilePath>
+              <FilePath>..\..\..\..\..\src\qs\qstamp.c</FilePath>
             </File>
             <File>
               <FileName>main.c</FileName>
@@ -1827,11 +1802,6 @@
               <FileName>qf_mem.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\src\qf\qf_mem.c</FilePath>
-            </File>
-            <File>
-              <FileName>qf_pkg.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\..\..\..\..\src\qf_pkg.h</FilePath>
             </File>
             <File>
               <FileName>qf_ps.c</FileName>

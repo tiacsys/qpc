@@ -102,7 +102,7 @@ int     _write        (int file, char* p, int len)                 __attribute__
 *    Not needed (supported) by embOS, minimal implementation
 */
 int _close(int file) {
-  (void) file;  /* Not used, avoid warning */
+  (void) file;  // Not used, avoid warning
   return -1;
 }
 
@@ -115,9 +115,9 @@ int _close(int file) {
 *    Not needed (supported) by embOS, minimal implementation
 */
 int _execve(char* pName, char** pArgv, char** pEnv) {
-  (void) pName;  /* Not used, avoid warning */
-  (void) pArgv;  /* Not used, avoid warning */
-  (void) pEnv;   /* Not used, avoid warning */
+  (void) pName;  // Not used, avoid warning
+  (void) pArgv;  // Not used, avoid warning
+  (void) pEnv;   // Not used, avoid warning
   errno = ENOMEM;
   return -1;
 }
@@ -130,7 +130,7 @@ int _execve(char* pName, char** pArgv, char** pEnv) {
 *    Exit a program without cleaning up files.
 */
 void _exit(int __status) {
-  (void) __status;  /* Not used, avoid warning */
+  (void) __status;  // Not used, avoid warning
   while(1);
 }
 
@@ -159,7 +159,7 @@ int _fork(void) {
 *    required is distributed in the include subdirectory for this C library.
 */
 int _fstat(int file, struct stat* pSt) {
-  (void) file;  /* Not used, avoid warning */
+  (void) file;  // Not used, avoid warning
   pSt->st_mode = S_IFCHR;
   return 0;
 }
@@ -184,8 +184,8 @@ int _getpid(void) {
 *    Not supported by embOS, minimal implementation
 */
 int _gettimeofday(struct timeval* pTp, struct timezone* pTzp) {
-  (void) pTp;   /* Not used, avoid warning */
-  (void) pTzp;  /* Not used, avoid warning */
+  (void) pTp;   // Not used, avoid warning
+  (void) pTzp;  // Not used, avoid warning
   errno = ENOSYS;
   return -1;
 }
@@ -201,7 +201,7 @@ int _gettimeofday(struct timeval* pTp, struct timezone* pTzp) {
 *    this minimal implementation is suggested
 */
 int _isatty(int file) {
-  (void) file;  /* Not used, avoid warning */
+  (void) file;  // Not used, avoid warning
 
   return 1;
 }
@@ -215,8 +215,8 @@ int _isatty(int file) {
 *    Not needed (supported) by embOS, minimal implementation
 */
 int _kill(int pid, int sig) {
-  (void) pid;  /* Not used, avoid warning */
-  (void) sig;  /* Not used, avoid warning */
+  (void) pid;  // Not used, avoid warning
+  (void) sig;  // Not used, avoid warning
   errno = EINVAL;
   return -1;
 }
@@ -230,8 +230,8 @@ int _kill(int pid, int sig) {
 *    Not needed (supported) by embOS, minimal implementation
 */
 int _link(char* pOld, char* pNew) {
-  (void) pOld;  /* Not used, avoid warning */
-  (void) pNew;  /* Not used, avoid warning */
+  (void) pOld;  // Not used, avoid warning
+  (void) pNew;  // Not used, avoid warning
   errno = EMLINK;
   return -1;
 }
@@ -245,9 +245,9 @@ int _link(char* pOld, char* pNew) {
 *    Not needed (supported) by embOS, minimal implementation
 */
 int _lseek(int file, int ptr, int dir) {
-  (void) file;  /* Not used, avoid warning */
-  (void) ptr;   /* Not used, avoid warning */
-  (void) dir;   /* Not used, avoid warning */
+  (void) file;  // Not used, avoid warning
+  (void) ptr;   // Not used, avoid warning
+  (void) dir;   // Not used, avoid warning
   return 0;
 }
 
@@ -260,9 +260,9 @@ int _lseek(int file, int ptr, int dir) {
 *    Not needed (supported) by embOS, minimal implementation
 */
 int _open(const char* pName, int flags, int mode) {
-  (void) pName;  /* Not used, avoid warning */
-  (void) flags;  /* Not used, avoid warning */
-  (void) mode;   /* Not used, avoid warning */
+  (void) pName;  // Not used, avoid warning
+  (void) flags;  // Not used, avoid warning
+  (void) mode;   // Not used, avoid warning
   return -1;
 }
 
@@ -275,9 +275,9 @@ int _open(const char* pName, int flags, int mode) {
 *    Not needed (supported) by embOS, minimal implementation
 */
 int _read(int file, char* p, int len) {
-  (void) file;  /* Not used, avoid warning */
-  (void) p;     /* Not used, avoid warning */
-  (void) len;   /* Not used, avoid warning */
+  (void) file;  // Not used, avoid warning
+  (void) p;     // Not used, avoid warning
+  (void) len;   // Not used, avoid warning
   return 0;
 }
 
@@ -299,8 +299,8 @@ caddr_t _sbrk(int incr) {
   }
   prev_heap_end = heap_end;
   if (heap_end + incr > &__heap_end__) {
-      /* Some of the libstdc++-v3 tests rely upon detecting
-         out of memory errors, so do not abort here. */
+      // Some of the libstdc++-v3 tests rely upon detecting
+         out of memory errors, so do not abort here.
       errno = ENOMEM;
       return (caddr_t) -1;
   }
@@ -317,7 +317,7 @@ caddr_t _sbrk(int incr) {
 *    Not needed (supported) by embOS, minimal implementation
 */
 int _stat(const char* pFile, struct stat* pSt) {
-  (void) pFile;  /* Not used, avoid warning */
+  (void) pFile;  // Not used, avoid warning
   pSt->st_mode = S_IFCHR;
   return 0;
 }
@@ -332,7 +332,7 @@ int _stat(const char* pFile, struct stat* pSt) {
 *    Not needed (supported) by embOS, minimal implementation
 */
 clock_t _times(struct tms* pBuf) {
-  (void) pBuf;  /* Not used, avoid warning */
+  (void) pBuf;  // Not used, avoid warning
   return -1;
 }
 
@@ -345,7 +345,7 @@ clock_t _times(struct tms* pBuf) {
 *    Not needed (supported) by embOS, minimal implementation
 */
 int _unlink(char* pName) {
-  (void) pName;  /* Not used, avoid warning */
+  (void) pName;  // Not used, avoid warning
   errno = ENOENT;
   return -1;
 }
@@ -359,7 +359,7 @@ int _unlink(char* pName) {
 *    Not needed (supported) by embOS, minimal implementation
 */
 int _wait(int* pStatus) {
-  (void) pStatus;  /* Not used, avoid warning */
+  (void) pStatus;  // Not used, avoid warning
   errno = ECHILD;
   return -1;
 }
@@ -381,11 +381,11 @@ int _wait(int* pStatus) {
 int _write(int file, char* p, int len) {
   int todo;
 
-  (void) file;  /* Not used, avoid warning */
-  (void) p;     /* Not used, avoid warning */
-  (void) len;   /* Not used, avoid warning */
+  (void) file;  // Not used, avoid warning
+  (void) p;     // Not used, avoid warning
+  (void) len;   // Not used, avoid warning
   for (todo = 0; todo < len; todo++) {
-    /* outbyte (*p++); */ /* Not supported, has to be implemented if needed */
+    // outbyte (*p++); // Not supported, has to be implemented if needed
   }
   return len;
 }

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<model version="5.2.4" links="1">
+<model version="5.3.0" links="1">
  <documentation>Improved model of the Calculator described in Chapter 4 of PSiCC2. Improvements include:
 - placing the &quot;negated1&quot; state inside &quot;operand1&quot; superstate
 - placing the &quot;negated2&quot; state inside &quot;operand2&quot; superstate
@@ -33,17 +33,17 @@
    <attribute name="oper2" type="uint8_t" visibility="0x02" properties="0x00"/>
    <!--${SMs::Calc::eval}-->
    <operation name="eval" type="bool" visibility="0x02" properties="0x00">
-    <documentation>/* guard function to evaluate the current expression
+    <documentation>// guard function to evaluate the current expression
 * taking into account the precedence of operands.
 * return: true if evaluation successfull
 * false when error encountered
-*/</documentation>
+</documentation>
     <!--${SMs::Calc::eval::op}-->
     <parameter name="op" type="double"/>
     <!--${SMs::Calc::eval::oper}-->
     <parameter name="oper" type="uint8_t"/>
     <code>double result;
-if (me-&gt;oper1 == KEY_NULL) { /* no op1 yet */
+if (me-&gt;oper1 == KEY_NULL) { // no op1 yet
     me-&gt;op1 = op;
     me-&gt;oper1 = oper;
     result = me-&gt;op1;
@@ -56,13 +56,13 @@ else if ((oper == KEY_NULL) || (oper == KEY_PLUS) || (oper == KEY_MINUS)) {
         }
         case KEY_DIVIDE: {
             if ((-1e-30 &lt; op) &amp;&amp; (op &lt; 1e-30)) {
-                BSP_display_error(&quot; Error 0 &quot;); /* divide by zero */
+                BSP_display_error(&quot; Error 0 &quot;); // divide by zero
                 return false;
             }
             me-&gt;op2 /= op;
             break;
          }
-         default: { /* no op2 yet */
+         default: { // no op2 yet
             me-&gt;op2 = op;
             me-&gt;oper2 = oper;
             break;
@@ -83,7 +83,7 @@ else if ((oper == KEY_NULL) || (oper == KEY_PLUS) || (oper == KEY_MINUS)) {
         }
         case KEY_DIVIDE: {
             if ((-1e-30 &lt; me-&gt;op2) &amp;&amp; (me-&gt;op2 &lt; 1e-30)) {
-                BSP_display_error(&quot; Error 0 &quot;); /* divide by zero */
+                BSP_display_error(&quot; Error 0 &quot;); // divide by zero
                 return false;
             }
             me-&gt;op1 /= me-&gt;op2;
@@ -98,7 +98,7 @@ else if ((oper == KEY_NULL) || (oper == KEY_PLUS) || (oper == KEY_MINUS)) {
     me-&gt;oper2 = KEY_NULL;
     result = me-&gt;op1;
 }
-else { /* (oper == KEY_MULT) || (oper == KEY_DIV) */
+else { // (oper == KEY_MULT) || (oper == KEY_DIV)
     switch (me-&gt;oper2) {
         case KEY_MULT: {
             me-&gt;op2 *= op;
@@ -106,13 +106,13 @@ else { /* (oper == KEY_MULT) || (oper == KEY_DIV) */
         }
         case KEY_DIVIDE: {
             if ((-1e-30 &lt; op) &amp;&amp; (op &lt; 1e-30)) {
-                BSP_display_error(&quot; Error 0 &quot;); /* divide by zero */
+                BSP_display_error(&quot; Error 0 &quot;); // divide by zero
                 return false;
             }
             me-&gt;op2 /= op;
             break;
         }
-        default: { /* oper2 not provided yet */
+        default: { // oper2 not provided yet
             me-&gt;op2 = op;
             break;
         }
@@ -122,7 +122,7 @@ else { /* (oper == KEY_MULT) || (oper == KEY_DIV) */
 }
 
 if ((result &lt; -99999999.0) || (99999999.0 &lt; result)) {
-    BSP_display_error(&quot; Error 1 &quot;); /* out of range */
+    BSP_display_error(&quot; Error 1 &quot;); // out of range
     return false;
 }
 if ((-0.0000001 &lt; result) &amp;&amp; (result &lt; 0.0000001)) {
@@ -136,7 +136,7 @@ return true;</code>
    <statechart properties="0x01">
     <!--${SMs::Calc::SM::initial}-->
     <initial target="../1">
-     <action>(void)par; /* unused parameter */</action>
+     <action>(void)par; // unused parameter</action>
      <initial_glyph conn="2,2,5,1,94,4,0">
       <action box="1,-2,13,4"/>
      </initial_glyph>
@@ -167,9 +167,9 @@ BSP_clear();</action>
      </tran>
      <!--${SMs::Calc::SM::on::error}-->
      <state name="error">
-      <documentation>/* Error state after evaluation of an expression.
+      <documentation>// Error state after evaluation of an expression.
 This state can be exited only throgh the inherited C (Clear) event.
-*/</documentation>
+</documentation>
       <entry>BSP_message(&quot;error-ENTRY;&quot;);</entry>
       <exit>BSP_message(&quot;error-EXIT;&quot;);</exit>
       <state_glyph node="12,68,10,8">
@@ -552,16 +552,16 @@ enum CalcSignals {
 $declare${Events::CalcEvt}
 $declare${SMs::Calc_ctor}
 
-extern QHsm * const the_calc;  /* &quot;opaque&quot; pointer to calculator HSM */
+extern QHsm * const the_calc;  // &quot;opaque&quot; pointer to calculator HSM
 
-#endif /* CALC2_H */
+#endif // CALC2_H
 </text>
   </file>
   <!--${.::calc2.c}-->
   <file name="calc2.c">
-   <text>#include &quot;qpc.h&quot;   /* QP/C */
-#include &quot;bsp.h&quot;   /* board support package */
-#include &quot;calc2.h&quot; /* application */
+   <text>#include &quot;qpc.h&quot;   // QP/C
+#include &quot;bsp.h&quot;   // board support package
+#include &quot;calc2.h&quot; // application
 
 Q_DEFINE_THIS_FILE
 

@@ -39,7 +39,7 @@ Revision: $Rev: 22733 $
 #include "Global.h"         // Type definitions: U8, U16, U32, I8, I16, I32
 
 #if defined(__cplusplus)
-extern "C" {     /* Make sure we have C-declarations in C++ programs */
+extern "C" {     // Make sure we have C-declarations in C++ programs
 #endif
 
 /*********************************************************************
@@ -223,7 +223,7 @@ void SEGGER_BSP_SeedUID (void);
 void SEGGER_VERSION_GetString(char acText[8], unsigned Version);
 
 #if defined(__cplusplus)
-}                /* Make sure we have C-declarations in C++ programs */
+}                // Make sure we have C-declarations in C++ programs
 #endif
 
 #endif                      // Avoid multiple inclusion

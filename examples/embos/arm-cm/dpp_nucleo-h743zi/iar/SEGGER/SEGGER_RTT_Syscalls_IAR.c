@@ -74,7 +74,7 @@ size_t __write(int handle, const unsigned char * buffer, size_t size);
 *   Write data via RTT.
 */
 size_t __write(int handle, const unsigned char * buffer, size_t size) {
-  (void) handle;  /* Not used, avoid warning */
+  (void) handle;  // Not used, avoid warning
   SEGGER_RTT_Write(0, (const char*)buffer, size);
   return size;
 }
@@ -90,7 +90,7 @@ size_t __write(int handle, const unsigned char * buffer, size_t size) {
 *   Write data via RTT.
 */
 size_t __write_buffered(int handle, const unsigned char * buffer, size_t size) {
-  (void) handle;  /* Not used, avoid warning */
+  (void) handle;  // Not used, avoid warning
   SEGGER_RTT_Write(0, (const char*)buffer, size);
   return size;
 }

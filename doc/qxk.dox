@@ -1,0 +1,914 @@
+/*! @file include/qxk.h
+@brief QXK/C (preemptive dual-mode kernel) platform-independent public interface.
+
+@trace
+- @tr{DVP-QP-MC4-D04_08}
+*/
+
+//============================================================================
+/*! @class QXK
+@brief The QXK kernel class
+
+@note
+The order and alignment of the data members in this struct might be important in QXK ports, where the members might be accessed in assembly.
+*/
+//----------------------------------------------------------------------------
+/*! @property QXK::readySet
+Set of active-objects/threads that are ready to run in the QXK kernel
+*/
+//----------------------------------------------------------------------------
+/*! @property QXK::readySet_dis
+Duplicate inverse storage to mirror the QXK readySet
+*/
+//----------------------------------------------------------------------------
+/*! @property QXK:: QXK_sched_(void)
+QXK scheduler finds the highest-priority thread ready to run
+
+@details
+The QXK scheduler finds the priority of the highest-priority thread that is ready to run.
+
+@returns
+the 1-based priority of the the thread (basic or extended) run next, or zero if no eligible thread is found.
+
+@precondition{qxk,402}
+- check the integrity of readySet_dis (duplicate inverse storage)
+
+@attention
+QXK_sched_() must be always called with interrupts **disabled** and
+returns with interrupts **disabled**.
+*/
+//----------------------------------------------------------------------------
+/*! @property QXK::QXK_activate_(void)
+QXK activator activates the next active object. The activated AO preempts the currently executing AOs.
+
+@details
+QXK_activate_() activates ready-to run AOs that are above the initial active priority (QXK_priv_.actPrio).
+
+@precondition{qxk,500}
+- QXK_priv_.next must be valid and the prio must be in range
+
+@attention
+QXK_activate_() must be always called with interrupts **disabled** and returns with interrupts **disabled**.
+*/
+//----------------------------------------------------------------------------
+/*! @property QXK::QXK_current(void)
+Obtain the currently executing active-object/thread
+
+@returns
+pointer to the currently executing active-object/thread
+
+@precondition{qxk,800}
+- the QXK kernel must be running
+
+@postcondition{qxk,890}
+- the current thread must be valid
+*/
+//----------------------------------------------------------------------------
+/*! @property QXK::QXK_stackInit_(void * thr, QXThreadHandler const handler, void * const stkSto, uint_fast16_t const stkSize)
+Initialize the private stack of a given AO (defined in QXK port)
+*/
+//----------------------------------------------------------------------------
+/*! @property QXK::QXK_contextSw_(QActive * const next)
+QXK context switch management
+
+@details
+This internal function handles context switch. It calls QF_onContextSw() (if #QF_ON_CONTEXT_SW is defined and performs software tracing (if #Q_SPY is defined).
+
+@param[in] next  pointer to the next thread (NULL for basic-thread)
+
+@attention
+QXK_contextSw_() is invoked with interrupts **disabled** and must also return with interrupts **disabled**.
+*/
+//----------------------------------------------------------------------------
+/*! @property QXK::QXK_onIdle(void)
+QXK idle callback (customized in BSPs for QXK)
+
+@details
+QXK_onIdle() is called continuously by the QXK idle thread. This callback gives the application an opportunity to enter a power-saving CPU mode, or perform some other idle processing.
+
+@note
+QXK_onIdle() is invoked with interrupts enabled and must also return with interrupts enabled.
+*/
+
+//----------------------------------------------------------------------------
+/*! @property QXK::QXK_schedLock(uint_fast8_t const ceiling)
+QXK Scheduler lock
+
+@details
+This function locks the QXK scheduler to the specified ceiling.
+
+@param[in] ceiling  preemption ceiling to which the QXK scheduler needs to be locked
+
+@returns
+The previous QXK Scheduler lock status, which is to be used to unlock the scheduler by restoring its previous lock status in QXK_schedUnlock().
+
+@precondition{qxk,100}
+- the QXK scheduler lock cannot be called from an ISR
+
+@note
+A QXK scheduler can be locked from both basic threads (AOs) and extended threads and the scheduler locks can nest.
+
+@note
+QXK_schedLock() must be always followed by the corresponding QXK_schedUnlock().
+
+@attention
+QXK will fire an assertion if a thread holding the lock attempts to block.
+
+@sa QXK_schedUnlock()
+
+@usage
+The following example shows how to lock and unlock the QXK scheduler:
+@code{c}
+uint32_t BSP_random(void) {
+    uint32_rnd;
+
+    QSchedStatus lockStat = QXK_schedLock(N_PHILO); // <== N_PHILO ceiling
+    . . . // access/manipulate the shared random seed resource
+    QXK_schedUnlock(lockStat); // <=== unlock
+
+    return rnd;
+}
+@endcode
+*/
+
+//----------------------------------------------------------------------------
+/*! @property QXK::QXK_schedUnlock(QSchedStatus const stat)
+QXK Scheduler unlock
+
+@details
+This function unlocks the QXK scheduler to the previous status.
+
+@param[in] stat   previous QXK Scheduler lock status returned from QXK_schedLock()
+
+@precondition{qxk,200}
+- the QXK scheduler cannot be unlocked from the ISR context
+@precondition{qxk,501}
+- the current lock ceiling must be greater than the previous
+
+@note
+A QXK scheduler can be locked from both basic threads (AOs) and extended threads and the scheduler locks can nest.
+
+@note
+QXK_schedUnlock() must always follow the corresponding QXK_schedLock().
+
+@usage
+The following example shows how to lock and unlock the QXK scheduler:
+@code{c}
+uint32_t BSP_random(void) {
+    uint32_rnd;
+
+    QSchedStatus lockStat = QXK_schedLock(N_PHILO); // <== N_PHILO ceiling
+    . . . // access/manipulate the shared random seed resource
+    QXK_schedUnlock(lockStat); // <=== unlock
+
+    return rnd;
+}
+@endcode
+*/
+//----------------------------------------------------------------------------
+/*! @property QXK::QXK_threadExit_(void)
+Called when QXThread exits
+
+@details
+Called when the extended-thread handler function returns.
+
+@precondition{qxk,900}
+- must NOT be called from an ISR;
+- must be called from an extended thread
+@precondition{qxk,901}
+- the thread must NOT be holding a scheduler lock
+
+@note
+Most thread handler functions are structured as endless loops that never return. But it is also possible to structure threads as one-shot functions that perform their job and return. In that case this function performs cleanup after the thread.
+*/
+
+//============================================================================
+/*! @class QXThread
+@brief eXtended (blocking) thread of the QXK preemptive kernel
+
+@details
+::QXThread represents the eXtended (blocking) thread of the QXK kernel. Each extended thread in the application must be represented by the corresponding ::QXThread instance
+
+@note
+Typically, ::QXThread is instantiated directly in the application code. The customization of the thread occurs in the QXThread_ctor(), where you provide the thread-handler function as the parameter.
+
+@usage
+The following example illustrates how to instantiate and use an extended thread in your application.
+@code{c}
+#include "qpc.h"
+
+QXThread blinky;  // QXK extended-thread object
+
+void main_blinky(QXThread * const me) { // thread function
+    while (1) {
+        BSP_ledOn();
+        QXThread_delay(100U); // BLOCK
+        BSP_ledOff();
+        QXThread_delay(200U); // BLOCK
+    }
+}
+
+int main() {
+    . . .
+    // initialize and start blinky thread
+    QXThread_ctor(&blinky, &main_blinky, 0);
+
+    static uint64_t stack_blinky[40]; // stack for the thread
+    QXTHREAD_START(&blinky,
+        5U,           // priority
+        (void *)0, 0, // event queue (not used)
+        stack_blinky, sizeof(stack_blinky), // stack
+        (void *)0);   // extra parameter (not used)
+    . . .
+    return QF_run(); // run the application */
+}
+@endcode
+*/
+//----------------------------------------------------------------------------
+/*! property @property QXThread::timeEvt
+Time event to handle blocking timeouts
+*/
+//----------------------------------------------------------------------------
+/*! property @property QXThread::QXThread_dummy
+Dummy static member to force QM to generate "struct QXThread"
+*/
+
+//----------------------------------------------------------------------------
+/*! @property QXThread::QXThread_ctor(QXThread * const me, QXThreadHandler const handler, uint_fast8_t const tickRate)
+Constructor of an extended-thread
+
+@details
+Performs the first step of QXThread initialization by assigning the thread-handler function and the tick rate at which it will handle the timeouts.
+
+@param[in,out] me       current instance pointer (see @ref oop)
+@param[in]     handler  the thread-handler function
+@param[in]     tickRate the tick rate for timeouts in this thread (see QXThread_delay() and QTIMEEVT_TICK_X())
+
+@note
+Must be called only ONCE before QXTHREAD_START().
+
+@usage
+The following example illustrates how to invoke QXThread_ctor() in the main() function
+@code{c}
+#include "qpc.h"
+
+Q_DEFINE_THIS_FILE
+
+QXThread blinky;  // QXK extended-thread object
+
+void main_blinky(QXThread * const me) { // thread function
+    while (1) {
+        . . .
+    }
+}
+
+int main() {
+    . . .
+    // instantiate and start blinky thread
+    QXThread_ctor(&blinky, &main_blinky, 0); // <===
+
+    static uint64_t stack_blinky[40]; // stack for the thread
+    QXTHREAD_START(&blinky,
+        5U,           // priority
+        (void *)0, 0, // event queue (not used)
+        stack_blinky, sizeof(stack_blinky), // stack
+        (void *)0);   // extra parameter (not used)
+    . . .
+    return QF_run(); // run the application */
+}
+@endcode
+*/
+//----------------------------------------------------------------------------
+/*! @property QXThread::QXThread_delay(uint_fast16_t const nTicks)
+Delay (block) the current extended thread for a specified # ticks
+
+@details
+Blocking delay for the number of clock tick at the associated tick rate.
+
+@param[in]  nTicks    number of clock ticks (at the associated rate) to wait for the event to arrive.
+
+@returns
+'true' if delay has expired, 'false' if it delay was canceled with
+QXThread_delayCancel().
+
+@precondition{qxk_xthr,800}
+- must NOT be called from an ISR;
+- number of ticks cannot be zero
+- be called from an extended thread;
+- the thread must NOT be already blocked on any object.
+@precondition{qxk_xthr,801}
+- the thread must NOT be holding a scheduler lock.
+
+@note
+For the delay to work, the QTIMEEVT_TICK_X() macro needs to be called periodically at the associated clock tick rate.
+*/
+//----------------------------------------------------------------------------
+/*! @property QXThread::QXThread_delayCancel(QXThread * const me)
+Cancel the delay
+
+@details
+Cancel the blocking delay and cause return from the QXThread_delay() function.
+
+@returns
+"true" if the thread was actually blocked on QXThread_delay() and "false" otherwise.
+*/
+//----------------------------------------------------------------------------
+/*! @property QXThread::QXThread_queueGet(uint_fast16_t const nTicks)
+Obtain a message from the private message queue (block if no messages)
+
+@details
+The QXThread_queueGet() operation allows the calling extended thread to receive QP events directly into its own built-in event queue from an ISR, basic thread (AO), or another extended thread.
+
+If QXThread_queueGet() is called when no events are present in the thread's private event queue, the operation blocks the current extended thread until either an event is received, or a user-specified timeout expires.
+
+@param[in]  nTicks number of clock ticks (at the associated rate) to wait for the event to arrive. The value of #QXTHREAD_NO_TIMEOUT indicates that no timeout will occur and the queue will block indefinitely.
+
+@returns
+A pointer to the event. If the pointer is not NULL, the event was delivered. Otherwise the event pointer of NULL indicates that the queue has timed out.
+
+@precondition{qxk_xthr,500}
+- must NOT be called from an ISR;
+- be called from an extended thread;
+- the thread must NOT be already blocked on any object.
+@precondition{qxk_xthr,501}
+ - the thread must NOT be holding a scheduler lock.
+*/
+//----------------------------------------------------------------------------
+/*! @property QXThread:: QXThread_start_(QActive * const me, QPrioSpec const prioSpec, QEvt const * * const qSto, uint_fast16_t const qLen, void * const stkSto, uint_fast16_t const stkSize, void const * const par)
+Start QXThread private implementation
+
+@details
+Starts execution of an extended thread and registers it with the framework. The extended thread becomes ready-to-run immediately and is scheduled if the QXK is already running.
+
+@param[in,out] me    current instance pointer (see @ref oop)
+@param[in]  prioSpec QF priority of the eXtended thread (1U..#QF_MAX_ACTIVE)
+@param[in]  qSto     pointer to the storage for the ring buffer of the event queue. This cold be NULL, if this extended thread does not use the built-in event queue.
+@param[in]  qLen     length of the event queue [in events], or zero if queue not used
+@param[in]  stkSto   pointer to the stack storage (must be provided)
+@param[in]  stkSize  stack size [in bytes] (must not be zero)
+@param[in]  par      pointer to an extra parameter (might be NULL).
+
+@precondition{qxk_xthr,200}
+- must NOT be called from an ISR;
+- the stack storage must be provided;
+- the thread must be instantiated (see QXThread_ctor())
+- preemption-threshold is NOT provided (because QXK kernel
+  does not support preemption-threshold scheduling)
+
+@note
+Currently, extended trheads in QXK do NOT support preemption-threshold. The `prio` must NOT provide preemption-threshold and this function will assert it in the precondition.
+
+@usage
+QXThread_start_() should NOT be called directly, only via the macro QXTHREAD_START(). The following example shows starting an extended thread:
+@code{c}
+#include "qpc.h"
+
+Q_DEFINE_THIS_FILE
+
+QXThread blinky;  // QXK extended-thread object
+
+void main_blinky(QXThread * const me) { // thread function
+    while (1) {
+        . . .
+    }
+}
+
+int main() {
+    . . .
+    // instantiate and start blinky thread
+    QXThread_ctor(&blinky, &main_blinky, 0);
+
+    static uint64_t stack_blinky[40]; // stack for the thread
+    QXTHREAD_START(&blinky,           // <===
+        5U,           // priority
+        (void *)0, 0, // event queue (not used)
+        stack_blinky, sizeof(stack_blinky), // stack
+        (void *)0);   // extra parameter (not used)
+    . . .
+    return QF_run(); // run the application */
+}
+@endcode
+*/
+//----------------------------------------------------------------------------
+/*! @property QXThread::QXThread_block_(QXThread const * const me)
+Block QXThread private implementation
+
+@details
+Internal implementation of blocking the given extended thread.
+
+@precondition{qxk_xthr,600}
+- the thread holding the lock cannot block!
+
+@attention
+Must be called from within a critical section
+*/
+//----------------------------------------------------------------------------
+/*! @property QXThread::QXThread_unblock_(QXThread const * const me)
+Unblock QXThread private implementation
+
+@details
+Internal implementation of un-blocking the given extended thread.
+
+@attention
+Must be called from within a critical section
+*/
+//----------------------------------------------------------------------------
+/*! @property QXThread::QXThread_timeout_(QActive * const act)
+Process timeout in QXThread (either delay or during blocking)
+
+@param[in,out] act generic QActive* pointer of the thread that times out.
+*/
+//----------------------------------------------------------------------------
+/*! @property QXThread::QXThread_teArm_(QXThread * const me, enum_t const sig, uint_fast16_t const nTicks)
+Arm internal time event private implementation
+
+@details
+Internal implementation of arming the private time event for a given timeout at a given system tick rate.
+
+@precondition{qxk_xthr,700}
+- the time event must be unused
+
+@attention
+Must be called from within a critical section
+*/
+//----------------------------------------------------------------------------
+/*! @property QXThread::QXThread_teDisarm_(QXThread * const me)
+Disarm internal time event private implementation
+
+@details
+Internal implementation of disarming the private time event.
+
+@attention
+Must be called from within a critical section
+*/
+
+//============================================================================
+/*! @class QXSemaphore
+@brief Counting Semaphore of the QXK preemptive kernel
+
+@details
+::QXSemaphore is a blocking mechanism intended primarily for signaling
+@ref ::QXThread "extended threads". The semaphore is initialized with
+the maximum count (see QXSemaphore_init()), which allows you to create
+a binary semaphore (when the maximum count is 1) and
+counting semaphore when the maximum count is > 1.
+
+@usage
+The following example illustrates how to instantiate and use the semaphore in your application.
+@code{c}
+QXSemaphore BTN_sema; // semaphore to signal a button press//
+int main() {
+    . . .
+    // initialize the BTN_sema semaphore as binary, signaling semaphore//
+    QXSemaphore_init(&BTN_sema, // pointer to semaphore to initialize//
+                     0U,  // initial semaphore count (singaling semaphore)//
+                     1U); // maximum semaphore count (binary semaphore)//
+    . . .
+}
+
+void main_threadXYZ(QXThread * const me) {
+    while (1) {
+        . . .
+        QXSemaphore_wait(&BTN_sema,  // <--- pointer to semaphore to wait on//
+                         QXTHREAD_NO_TIMEOUT); // timeout for waiting//
+        . . .
+    }
+}
+
+void GPIO_Handler(void) {
+    . . .
+    QXSemaphore_signal(&BTN_sema); // <--- pointer to semaphore to signal//
+    . . .
+}
+@endcode
+*/
+//----------------------------------------------------------------------------
+/*! @property QXSemaphore::waitSet
+Set of extended threads waiting on this semaphore
+*/
+//----------------------------------------------------------------------------
+/*! @property QXSemaphore::count
+Semaphore up-down counter
+*/
+//----------------------------------------------------------------------------
+/*! @property QXSemaphore::max_count
+Maximum value of the semaphore counter (e.g., 1 for binary semaphore)
+*/
+//----------------------------------------------------------------------------
+/*! @property QXSemaphore::QXSemaphore_init(QXSemaphore * const me, uint_fast8_t const count, uint_fast8_t const max_count)
+Initialize the counting semaphore
+
+@details
+Initializes a semaphore with the specified count and maximum count. If the semaphore is used for resource sharing, both the initial count and maximum count should be set to the number of identical resources guarded by the semaphore. If the semaphore is used as a signaling
+mechanism, the initial count should set to 0 and maximum count to 1 (binary semaphore).
+
+@param[in,out] me     current instance pointer (see @ref oop)
+@param[in]     count  initial value of the semaphore counter
+@param[in]     max_count  maximum value of the semaphore counter. The purpose of the max_count is to limit the counter so that the semaphore cannot unblock more times than the maximum.
+
+@precondition{qxk_sema,100}
+- count must not exceed max_count
+- max_count must not be zero
+- max_count must not exceed 0xFFU (dynamic range of uint8_t)
+
+@note
+QXSemaphore_init() must be called **before** the semaphore can be used (signaled or waited on).
+*/
+//----------------------------------------------------------------------------
+/*! @property QXSemaphore::QXSemaphore_wait(QXSemaphore * const me, uint_fast16_t const nTicks)
+Wait (block) on the semaphore
+
+@details
+When an extended thread calls QXSemaphore_wait() and the value of the semaphore counter is greater than 0, QXSemaphore_wait() decrements the semaphore counter and returns (true) to its caller. However, if the value of the semaphore counter is 0, the function places the calling thread in the waiting list for the semaphore. The thread waits until the semaphore is signaled by calling QXSemaphore_signal(), or the specified timeout expires. If the semaphore is signaled before the timeout expires, QXK resumes the highest-priority extended thread waiting for the semaphore.
+
+@param[in,out] me   current instance pointer (see @ref oop)
+@param[in] nTicks   number of clock ticks (at the associated rate) to wait for the semaphore. The value of ::QXTHREAD_NO_TIMEOUT indicates that no timeout will occur and the semaphore will wait indefinitely.
+
+@returns
+'true' if the semaphore has been taken and 'false' if a timeout occurred.
+
+@precondition{qxk_sema,200}
+- must NOT be called from an ISR;
+- the semaphore must be initialized
+- be called from an extended thread;
+- the thread must NOT be already blocked on any object.
+@precondition{qxk_sema,201}
+- the thread must NOT be holding a scheduler lock.
+
+@note
+Multiple extended threads can wait for a given semaphore.
+*/
+//----------------------------------------------------------------------------
+/*! @property QXSemaphore::QXSemaphore_tryWait(QXSemaphore * const me)
+Try wait on the semaphore (non-blocking)
+
+@details
+This function checks if the semaphore counter is greater than 0, in which case the counter is decremented.
+
+@param[in,out] me     current instance pointer (see @ref oop)
+
+@returns
+'true' if the semaphore was taken and 'false' if not taken (would BLOCK).
+
+@precondition{qxk_sema,300}
+- the semaphore must be initialized
+
+@note
+This function can be called from any context, including ISRs and basic
+threads (active objects).
+*/
+//----------------------------------------------------------------------------
+/*! @property QXSemaphore::QXSemaphore_signal(QXSemaphore * const me)
+Signal (unblock) the semaphore
+
+@details
+If the semaphore counter value is 0 or more, it is incremented, and this function returns to its caller. If the extended threads are waiting for the semaphore to be signaled, QXSemaphore_signal() removes the highest-priority thread waiting for the semaphore from the waiting list and makes this thread ready-to-run. The QXK scheduler is then called to determine if the awakened thread is now the highest-priority thread that is ready-to-run.
+
+@param[in,out] me     current instance pointer (see @ref oop)
+
+@returns
+'true' when the semaphore signaled and 'false' when the semaphore count exceeded the maximum.
+
+@precondition{qxk_sema,400}
+- the semaphore must be initialized
+
+@note
+A semaphore can be signaled from many places, including from ISRs, basic
+threads (AOs), and extended threads.
+*/
+
+//============================================================================
+/*! @class QXMutex
+@brief Blocking Mutex of the QXK preemptive kernel
+
+@details
+::QXMutex is a blocking mutual exclusion mechanism that can also apply the **priority-ceiling protocol** to avoid unbounded priority inversion (if initialized with a non-zero ceiling priority, see QXMutex_init()). In that case, ::QXMutex requires its own unique QP priority level, which cannot be used by any thread or any other ::QXMutex.
+
+If initialized with preemption-ceiling of zero, ::QXMutex does **not** use the priority-ceiling protocol and does not require a unique QP priority (see QXMutex_init()).
+
+::QXMutex is **recursive** (re-entrant), which means that it can be locked multiple times (up to 255 levels) by the *same* thread without causing deadlock.
+
+::QXMutex is primarily intended for the @ref ::QXThread "extended (blocking) threads", but can also be used by the @ref ::QActive "basic threads" through the non-blocking QXMutex_tryLock() API.
+
+@note
+::QXMutex should be used in situations when at least one of the extended threads contending for the mutex blocks while holding the mutex (between the QXMutex_lock() and QXMutex_unlock() operations). If no blocking is needed while holding the mutex, the more efficient non-blocking mechanism of @ref grs_qxk-lock "selective QXK scheduler locking" should be used instead. @ref grs_qxk-lock "Selective scheduler locking" is available for both @ref ::QActive "basic threads" and @ref ::QXThread "extended threads", so it is applicable to situations where resources are shared among all these threads.
+
+@usage
+The following example illustrates how to instantiate and use the mutex to protect a shared resource (random seed of a pseudo-random number generator).
+@code{c}
+QXMutex l_rndMutex;  // mutex to protect the random number generator
+. . .
+void BSP_randomSeed(uint32_t seed) {
+    QXMutex_init(&l_rndMutex, N_PHILO); // <=== initialize the mutex
+    l_rnd = seed;
+}
+. . .
+uint32_t BSP_random(void) { // a pseudo-random-number generator
+    uint32_t rnd;
+
+    QXMutex_lock(&l_rndMutex); // <=== lock the shared random seed
+    rnd = l_rnd * (3U*7U*11U*13U*23U);
+    l_rnd = rnd; // set for the next time
+    QXMutex_unlock(&l_rndMutex); // <=== unlock the shared random seed
+
+    return rnd;
+}
+@endcode
+*/
+//----------------------------------------------------------------------------
+/*! @property QXMutex::ao
+Active object used as a placeholder AO for this mutex in QActive_registry_[]
+*/
+//----------------------------------------------------------------------------
+/*! @property QXMutex::waitSet
+Set of extended-threads waiting on this mutex
+*/
+
+//----------------------------------------------------------------------------
+/*! @property QXMutex::QXMutex_init(QXMutex * const me, QPrioSpec const prioSpec)
+Initialize the QXK priority-ceiling mutex ::QXMutex
+
+@details
+Initialize the QXK priority ceiling mutex.
+
+@param[in,out] me    current instance pointer (see @ref oop)
+@param[in] prioSpec  the priority specification for the mutex (See also ::QPrioSpec). This value might also be zero.
+
+@precondition{qxk_mutex,100}
+- preemption-threshold must not be used
+
+@note
+`prioSpec == 0` means that the priority-ceiling protocol shall **not** be used by this mutex. Such mutex will **not** change (boost) the priority of the holding threads.<br>
+
+Conversely, `prioSpec != 0` means that the priority-ceiling protocol shall be used by this mutex. Such mutex **will** temporarily boost the priority and priority-threshold of the holding thread to the priority specification in `prioSpec` (see ::QPrioSpec).
+
+@usage
+The following example illustrates how to instantiate and use the mutex to protect a shared resource (random seed of a pseudo-random number generator).
+@code{c}
+QXMutex l_rndMutex;  // mutex to protect the random number generator
+. . .
+void BSP_randomSeed(uint32_t seed) {
+    QXMutex_init(&l_rndMutex, N_PHILO); // <=== initialize the mutex
+    l_rnd = seed;
+}
+. . .
+uint32_t BSP_random(void) { // a pseudo-random-number generator
+    uint32_t rnd;
+
+    QXMutex_lock(&l_rndMutex); // <=== lock the shared random seed
+    rnd = l_rnd * (3U*7U*11U*13U*23U);
+    l_rnd = rnd; // set for the next time
+    QXMutex_unlock(&l_rndMutex); // <=== unlock the shared random seed
+
+    return rnd;
+}
+@endcode
+*/
+//----------------------------------------------------------------------------
+/*! @property QXMutex::QXMutex_lock(QXMutex * const me, uint_fast16_t const nTicks)
+Lock the QXK priority-ceiling mutex ::QXMutex
+
+@param[in,out] me   current instance pointer (see @ref oop)
+@param[in]  nTicks  number of clock ticks (at the associated rate)
+to wait for the mutex. The value of ::QXTHREAD_NO_TIMEOUT indicates that no timeout will occur and the mutex could block indefinitely.
+
+@returns
+'true' if the mutex has been acquired and 'false' if a timeout occurred.
+
+@precondition{qxk_mutex,200}
+- this operation must NOT be called from an ISR;
+- this operation must be called from an EXTENDED thread;
+- the configured mutex-priority must be in range;
+- the calling thread must NOT be already blocked on any object.
+@precondition{qxk_mutex,201}
+- the calling thread must NOT be holding a scheduler lock
+@precondition{qxk_mutex,202}
+- the newly locked mutex must have no holder yet
+
+@note
+The mutex locks are allowed to nest, meaning that the same extended thread can lock the same mutex multiple times (< 255). However, each call to QXMutex_lock() must be balanced by the matching call to QXMutex_unlock().
+
+@usage
+The following example illustrates how to instantiate and use the mutex to protect a shared resource (random seed of a pseudo-random number generator).
+@code{c}
+QXMutex l_rndMutex;  // mutex to protect the random number generator
+. . .
+void BSP_randomSeed(uint32_t seed) {
+    QXMutex_init(&l_rndMutex, N_PHILO); // <=== initialize the mutex
+    l_rnd = seed;
+}
+. . .
+uint32_t BSP_random(void) { // a pseudo-random-number generator
+    uint32_t rnd;
+
+    QXMutex_lock(&l_rndMutex); // <=== lock the shared random seed
+    rnd = l_rnd * (3U*7U*11U*13U*23U);
+    l_rnd = rnd; // set for the next time
+    QXMutex_unlock(&l_rndMutex); // <=== unlock the shared random seed
+
+    return rnd;
+}
+@endcode
+*/
+//----------------------------------------------------------------------------
+/*! @property QXMutex::QXMutex_tryLock(QXMutex * const me)
+Try to lock the QXK priority-ceiling mutex ::QXMutex
+
+@param[in,out] me      current instance pointer (see @ref oop)
+
+@returns
+'true' if the mutex was successfully locked and 'false' if the mutex was unavailable and was NOT locked.
+
+@precondition{qxk_mutex,300}
+- must NOT be called from an ISR;
+- the calling thread must be valid;
+- the mutex-priority must be in range
+@precondition{qxk_mutex,301}
+- the thread must NOT be holding a scheduler lock.
+@precondition{qxk_mutex,302}
+- the newly locked mutex must have no holder yet
+
+@note
+This function **can** be called from both basic threads (active objects) and extended threads.
+
+@note
+The mutex locks are allowed to nest, meaning that the same extended thread can lock the same mutex multiple times (<= 255). However, each successful call to QXMutex_tryLock() must be balanced by the matching call to QXMutex_unlock().
+*/
+//----------------------------------------------------------------------------
+/*! @property QXMutex::QXMutex_unlock(QXMutex * const me)
+Unlock the QXK priority-ceiling mutex ::QXMutex
+
+@param[in,out] me      current instance pointer (see @ref oop)
+
+@precondition{qxk_mutex,400}
+- this mutex operation must NOT be called from an ISR;
+- the calling (current) thread must be EXTENDED and valid;
+@precondition{qxk_mutex,401}
+- the mutex must be already locked at least once.
+@precondition{qxk_mutex,402}
+- the mutex must be held by this thread.
+
+@note
+This function **can** be called from both basic threads (active objects) and extended threads.
+
+@note
+The mutex locks are allowed to nest, meaning that the same extended thread can lock the same mutex multiple times (<= 225). However, each call to QXMutex_lock() or a *successful* call to QXMutex_tryLock() must be balanced by the matching call to QXMutex_unlock().
+
+@usage
+The following example illustrates how to instantiate and use the mutex to protect a shared resource (random seed of a pseudo-random number generator).
+@code{c}
+QXMutex l_rndMutex;  // mutex to protect the random number generator
+. . .
+void BSP_randomSeed(uint32_t seed) {
+    QXMutex_init(&l_rndMutex, N_PHILO); // <=== initialize the mutex
+    l_rnd = seed;
+}
+. . .
+uint32_t BSP_random(void) { // a pseudo-random-number generator
+    uint32_t rnd;
+
+    QXMutex_lock(&l_rndMutex); // <=== lock the shared random seed
+    rnd = l_rnd * (3U*7U*11U*13U*23U);
+    l_rnd = rnd; // set for the next time
+    QXMutex_unlock(&l_rndMutex); // <=== unlock the shared random seed
+
+    return rnd;
+}
+@endcode
+*/
+
+//============================================================================
+/*! @def QXTHREAD_START
+Start an extended thread
+
+@details
+Starts execution of the thread and registers the AO with the framework.
+
+@param[in,out] me_   current instance pointer (see @ref oop)
+@param[in] prioSpec_ QF priority of the extended thread
+@param[in] qSto_     pointer to the storage for the ring buffer of the event queue (used only with the built-in ::QEQueue)
+@param[in] qLen_     length of the event queue (in events)
+@param[in] stkSto_   pointer to the stack storage (used only when per-AO stack is needed)
+@param[in] stkSize_  stack size (in bytes)
+@param[in] par_      pointer to the additional port-specific parameter(s) (might be NULL).
+
+@trace
+- @tr{DVP-QP-MC4-D04_09A}
+
+@usage
+@code{c}
+#include "qpc.h"
+
+int main() {
+    QF_init();    // initialize the framework
+    BSP_init();   // initialize the Board Support Package
+
+    // initialize publish-subscribe...
+    QActive_psInit(subscrSto, Q_DIM(subscrSto));
+
+    // initialize event pools...
+    QF_poolInit(smlPoolSto, sizeof(smlPoolSto), sizeof(smlPoolSto[0]));
+
+    // start the active objects (basic threads)...
+    Table_ctor(); // instantiate the Table AO
+    QACTIVE_START(AO_Table,      // AO to start
+        n + 1U,                  // QF-priority
+        tableQueueSto,           // event queue storage
+        Q_DIM(tableQueueSto),    // queue length [events]
+        tableStackSto,           // stack storage
+        sizeof(tableStackSto),   // stack size [bytes]
+        (void *)0);              // initialization param
+    . . .
+
+    // start the extended-threads...
+    Test_ctor();  // instantiate the Test extended thread
+    QXTHREAD_START(XT_Test,      // Thread to start
+        10U,                     // QF-priority
+        testQueueSto,            // message queue storage
+        Q_DIM(testQueueSto),     // message length [events]
+        testStackSto,            // stack storage
+        sizeof(testStackSto),    // stack size [bytes]
+        (void *)0);              // initialization param
+
+    return QF_run(); // run the QF application
+}
+@endcode
+*/
+//----------------------------------------------------------------------------
+/*! @def QXTHREAD_NO_TIMEOUT
+No-timeout when blocking on semaphores, mutextes, and queues
+*/
+//----------------------------------------------------------------------------
+/*! @def QXTHREAD_POST_X
+Asynchronous posting events to the event queue of an eXtended thread
+
+@details
+This macro does not assert if the queue overflows and cannot accept the event with the specified margin of free slots remaining.
+
+@param[in,out] me_   current instance pointer (see @ref oop)
+@param[in]     e_    pointer to the event to post
+@param[in]     margin_ the minimum free slots in the queue, which
+must still be available after posting the event. The special value #QF_NO_MARGIN causes asserting failure in case event allocation fails.
+@param[in]     sender_ pointer to the sender object (used in QS tracing)
+
+@returns
+'true' if the posting succeeded, and 'false' if the posting failed due
+to insufficient margin of free slots available in the queue.
+
+@note
+The `sender_` parameter is actually only used when QS tracing is enabled (macro #Q_SPY is defined). When QS software tracing is disabled, the QXTHREAD_POST_X() macro does not pass the `sender_` parameter, so the overhead of passing this extra argument is entirely avoided.
+
+@note
+The pointer to the sender object is not necessarily a pointer to an active object. In fact, if QXTHREAD_POST_X() is called from an interrupt or other context, you can create a unique object just to unambiguously identify the sender of the event.
+
+@trace
+- @tr{DVP-QP-MC4-D04_09A}
+
+@usage
+@code{c}
+extern QXThread * const XT_Test;
+
+    . . .
+    // typically inside a state machine action
+    TableEvt *pe;
+    Q_NEW_X(pe, TableEvt, 5U, HUNGRY_SIG); // dynamic alloc, margin==5
+    if (pe != (TableEvt *)0) {
+        pe->philNum = me->num;
+        QXTHREAD_POST_X(XT_Test, &pe->super, 3U, me); // <===
+    }
+    . . .
+@endcode
+*/
+//----------------------------------------------------------------------------
+/*! @def QXK_PTR_CAST_
+Internal macro to encapsulate casting of pointers for MISRA deviations
+
+@details
+This macro is specifically and exclusively used for casting pointers
+that are never de-referenced, but only used for internal bookkeeping and
+checking (via assertions) the correct operation of the QXK kernel.
+Such pointer casting is not compliant with MISRA-C:2023-Rule 11.3(R)
+as well as other messages (e.g., PC-Lint-Plus warning 826).
+Defining this specific macro for this purpose allows to selectively
+disable the warnings for this particular case.
+
+@trace
+- @tr{DVR-QP-MC4-R11_05}
+- @tr{DVP-QP-PCLP-826}
+*/
+//----------------------------------------------------------------------------
+/*! @def QXTHREAD_CAST_
+Internal macro to encapsulate casting of pointers for MISRA deviations
+
+@details
+This macro is specifically and exclusively used for downcasting pointers
+to QActive to pointers to QXThread in situations when it is known
+that such downcasting is correct.However, such pointer casting is not
+compliant with MISRA-C:2023 Rule 11.3(R) as well as other messages (e.g.,
+PC-Lint-Plus warning 826). Defining this specific macro for this purpose
+allows to selectively disable the warnings for this particular case.
+
+@trace
+- @tr{DVR-QP-MC4-R11_03C}
+- @tr{DVP-QP-PCLP-826}
+*/
