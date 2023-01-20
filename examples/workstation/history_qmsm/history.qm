@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<model version="5.2.4" links="1">
+<model version="5.3.0" links="1">
  <documentation>Demonstration of transitions to shallow history and deep history in QMsm-style state machines.</documentation>
  <!--${qpc}-->
  <framework name="qpc"/>
@@ -12,7 +12,7 @@
    <statechart properties="0x01">
     <!--${SMs::ToastOven::SM::initial}-->
     <initial target="../1">
-     <action>(void)par; /* unused parameter */</action>
+     <action>(void)par; // unused parameter </action>
      <initial_glyph conn="3,2,5,1,53,4,-4">
       <action box="2,-2,13,4"/>
      </initial_glyph>
@@ -153,8 +153,8 @@ QMsm_ctor(&amp;me-&gt;super, Q_STATE_CAST(&amp;ToastOven_initial));</code>
  <directory name=".">
   <!--${.::history.h}-->
   <file name="history.h">
-   <text>#ifndef HISTORY_H
-#define HISTORY_H
+   <text>#ifndef HISTORY_H_
+#define HISTORY_H_
 
 enum ToastOvenSignals {
     OPEN_SIG = Q_USER_SIG,
@@ -162,32 +162,31 @@ enum ToastOvenSignals {
     TOAST_SIG,
     BAKE_SIG,
     OFF_SIG,
-    TERMINATE_SIG /* terminate the application */
+    TERMINATE_SIG // terminate the application 
 };
 
-extern QHsm * const the_oven; /* opaque pointer to the oven HSM */
+extern QHsm * const the_oven; // opaque pointer to the oven HSM 
 
 $declare(SMs::ToastOven_ctor)
 
-#endif /* HISTORY_H */
-</text>
+#endif // HISTORY_H_ </text>
   </file>
   <!--${.::history.c}-->
   <file name="history.c">
    <text>#include &quot;qpc.h&quot;
 #include &quot;history.h&quot;
 
-#include &quot;safe_std.h&quot; /* portable &quot;safe&quot; &lt;stdio.h&gt;/&lt;string.h&gt; facilities */
+#include &quot;safe_std.h&quot; // portable &quot;safe&quot; &lt;stdio.h&gt;/&lt;string.h&gt; facilities 
 #include &lt;stdlib.h&gt;
 
 //Q_DEFINE_THIS_FILE
 
 $declare(SMs::ToastOven)
 
-static ToastOven l_oven; /* the only instance of the ToastOven class */
+static ToastOven l_oven; // the only instance of the ToastOven class 
 
-/* global-scope definitions -----------------------------------------*/
-QHsm * const the_oven = &amp;l_oven.super.super; /* the opaque pointer */
+// global-scope definitions -----------------------------------------
+QHsm * const the_oven = &amp;l_oven.super.super; // the opaque pointer 
 
 $define(SMs::ToastOven_ctor)
 $define(SMs::ToastOven)</text>

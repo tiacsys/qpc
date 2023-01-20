@@ -1,0 +1,49 @@
+/*! @file include/qf_pkg.h
+@brief Internal (package scope) QF/C interface.
+
+@trace
+- @tr{DVP-QP-MC4-D04_08}
+*/
+
+//----------------------------------------------------------------------------
+/*! @property QEvt::QEvt_refCtr_inc_(QEvt const *me)
+Increment the refCtr of a const event (requires casting `const` away)
+
+@trace
+- @tr{DVR-QP-MC4-R11_08}
+*/
+//----------------------------------------------------------------------------
+/*! @property QEvt::QEvt_refCtr_dec_(QEvt const *me)
+Decrement the refCtr of a const event (requires casting `const` away)
+
+@trace
+- @tr{DVR-QP-MC4-R11_08}
+*/
+
+//----------------------------------------------------------------------------
+/*! @def QACTIVE_CAST_
+Internal helper macro to encapsulate a MISRA deviation
+
+@param[in] ptr_ active object pointer
+
+@details
+This internal macro encapsulates the violation of MISRA-C:2023 Rule 11.5(A).
+
+@trace
+- @tr{DVR-QP-MC4-R11_05}
+- @tr{DVP-QP-MC4-R11_03B}
+- @tr{DVP-QP-PCLP-826}
+*/
+//----------------------------------------------------------------------------
+/*! @def Q_UINTPTR_CAST_
+Internal helper macro to cast pointers to integers
+
+@param[in] ptr_ object pointer
+
+@returns
+The integer representation of the pointer
+
+@trace
+- @tr{DVP-QP-MC4-D04_09A} (false-positive)
+- @tr{DVR-QP-MC4-R11_04}
+*/

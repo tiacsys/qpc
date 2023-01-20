@@ -78,7 +78,7 @@ _ssize_t _write_r(struct _reent *r, int file, const void *ptr, size_t len);
 *   Write data via RTT.
 */
 _ssize_t _write(int file, const void *ptr, size_t len) {
-  (void) file;  /* Not used, avoid warning */
+  (void) file;  // Not used, avoid warning
   SEGGER_RTT_Write(0, ptr, len);
   return len;
 }
@@ -94,8 +94,8 @@ _ssize_t _write(int file, const void *ptr, size_t len) {
 *   Write data via RTT.
 */
 _ssize_t _write_r(struct _reent *r, int file, const void *ptr, size_t len) {
-  (void) file;  /* Not used, avoid warning */
-  (void) r;     /* Not used, avoid warning */
+  (void) file;  // Not used, avoid warning
+  (void) r;     // Not used, avoid warning
   SEGGER_RTT_Write(0, ptr, len);
   return len;
 }

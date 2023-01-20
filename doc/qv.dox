@@ -1,0 +1,28 @@
+/*! @file include/qv.h
+@brief QV/C (non-preemptive kernel) platform-independent public interface.
+
+@trace
+- @tr{DVP-QP-MC4-D04_08}
+*/
+
+//============================================================================
+/*! @class QV
+@brief QV non-preemptive, cooperative kernel
+*/
+//----------------------------------------------------------------------------
+/*! @property QV::readySet
+Set of active-objects/threads that are ready to run in the QV kernel
+*/
+//----------------------------------------------------------------------------
+/*! @property QV::readySet_dis
+Duplicate inverse storage to mirror the QV readySet
+*/
+//----------------------------------------------------------------------------
+/*! @property QV::QV_onIdle(void)
+QV idle callback (customized in BSPs for QV)
+
+QV_onIdle() is called by the cooperative QV kernel (from QF_run()) when the scheduler detects that no events are available for active objects (the idle condition). This callback gives the application an opportunity to enter a power-saving CPU mode, or perform some other idle processing (such as QS software tracing output).
+
+@attention
+QV_onIdle() is invoked with interrupts **DISABLED** because the idle condition can be asynchronously changed at any time by an interrupt. QV_onIdle() MUST enable the interrupts internally, but not before putting the CPU into the low-power mode. (Ideally, enabling interrupts and low-power mode should happen atomically). At the very least, the function MUST enable interrupts, otherwise interrupts will remain disabled permanently.
+*/*/

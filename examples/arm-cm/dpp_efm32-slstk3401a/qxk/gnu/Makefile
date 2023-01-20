@@ -1,7 +1,7 @@
 ##############################################################################
 # Product: Makefile for QP/C on EMF32-SLSTK3401A, QXK kernel, GNU-ARM
-# Last Updated for Version: 7.2.1
-# Date of the Last Update:  2023-01-14
+# Last Updated for Version: 7.3.0
+# Date of the Last Update:  2023-06-29
 #
 #                    Q u a n t u m  L e a P s
 #                    ------------------------
@@ -275,7 +275,7 @@ $(TARGET_BIN): $(TARGET_ELF)
 	$(BIN) -O binary $< $@
 
 $(TARGET_ELF) : $(ASM_OBJS_EXT) $(C_OBJS_EXT) $(CPP_OBJS_EXT)
-	$(CC) $(CFLAGS) $(QPC)/include/qstamp.c -o $(BIN_DIR)/qstamp.o
+	$(CC) $(CFLAGS) $(QPC)/src/qs/qstamp.c -o $(BIN_DIR)/qstamp.o
 	$(LINK) $(LINKFLAGS) -o $@ $^ $(BIN_DIR)/qstamp.o $(LIBS)
 
 $(BIN_DIR)/%.d : %.c
