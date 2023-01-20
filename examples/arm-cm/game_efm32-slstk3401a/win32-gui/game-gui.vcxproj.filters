@@ -2,7 +2,6 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="bsp.c" />
-    <ClCompile Include="..\main.c" />
     <ClCompile Include="..\mine1.c" />
     <ClCompile Include="..\mine2.c" />
     <ClCompile Include="..\missile.c" />
@@ -53,6 +52,7 @@
     <ClCompile Include="..\..\..\..\src\qf\qf_time.c">
       <Filter>QP</Filter>
     </ClCompile>
+    <ClCompile Include="main.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h" />

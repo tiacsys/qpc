@@ -1,0 +1,213 @@
+/*! @file include/qmpool.h
+* @brief QP native, platform-independent memory pool ::QMPool interface.
+*
+* @trace
+* - @tr{DVP-QP-MC4-D04_08}
+*/
+
+//----------------------------------------------------------------------------
+/*! @typedef QMPoolSize
+The data type to store the block-size based on the macro #QF_MPOOL_SIZ_SIZE.
+
+@details
+The dynamic range of this data type determines the maximum size of blocks that can be managed by the native QF event pool.
+*/
+//----------------------------------------------------------------------------
+/*! @typedef QMPoolCtr
+The data type to store the block-counter based on the macro  #QF_MPOOL_CTR_SIZE.
+
+@details
+The dynamic range of this data type determines the maximum number
+of blocks that can be stored in the pool.
+*/
+
+//----------------------------------------------------------------------------
+/*! @def QF_MPOOL_EL
+Memory pool element to allocate correctly aligned storage for QMPool class.
+
+@param[in] evType_ event type (name of the subclass of ::QEvt)
+
+@trace
+- @tr{DVP-QP-MC4-D04_09A}
+
+@usage
+@code{c}
+static QF_MPOOL_EL(QEvt) smallPoolSto[CONFIG_QPC_SMALL_POOL_SIZE];
+typedef struct {
+    QEvt super;
+    uint32_t data[CONFIG_QPC_MEDIUM_POOL_ENTRY_SIZE];
+} mediumPool;
+static QF_MPOOL_EL(mediumPool) mediumPoolSto[CONFIG_QPC_MEDIUM_POOL_SIZE];
+typedef struct {
+    QEvt super;
+    uint32_t data[CONFIG_QPC_LARGE_POOL_ENTRY_SIZE];
+} largePool;
+static QF_MPOOL_EL(largePool) largePoolSto[CONFIG_QPC_LARGE_POOL_SIZE];
+. . .
+int_t main() {
+    . . .
+    // initialize Event Memory Pools...
+    QF_poolInit(smallPoolSto, sizeof(smallPoolSto), sizeof(smallPoolSto[0]));
+    QF_poolInit(mediumPoolSto, sizeof(mediumPoolSto), sizeof(mediumPoolSto[0]));
+    QF_poolInit(largePoolSto, sizeof(largePoolSto), sizeof(largePoolSto[0]));
+    . . .
+}
+@endcode
+*/
+
+/*==========================================================================*/
+/*! @struct QFreeBlock
+@brief Structure representing a free block in ::QMPool
+*/
+//----------------------------------------------------------------------------
+/*! @property QFreeBlock::next
+Link to the next memory block
+*/
+//----------------------------------------------------------------------------
+/*! @property QFreeBlock::next_dis
+Duplicate inverse storage for the `next` pointer (QP FuSa Subsystem)
+*/
+
+/*==========================================================================*/
+/*! @class QMPool
+@brief Native QF Memory Pool
+
+@details
+A fixed block-size memory pool is a very fast and efficient data structure for dynamic allocation of fixed block-size chunks of memory. A memory pool offers fast and deterministic allocation and recycling of memory blocks and is not subject to fragmentation.
+
+The ::QMPool class describes the native QF memory pool, which can be used as
+the event pool for mutable event allocation, or as a fast, deterministic
+fixed block-size heap for any other objects in your application.
+
+@note
+::QMPool contains only data members for managing a memory pool, but does not contain the pool storage, which must be provided externally during the pool initialization.
+*/
+//----------------------------------------------------------------------------
+/*! @property QMPool::start
+Start of the memory managed by this memory pool
+*/
+//----------------------------------------------------------------------------
+/*! @property QMPool::end
+End of the memory managed by this memory pool
+*/
+//----------------------------------------------------------------------------
+/*! @property QMPool::free_head
+Head of linked list of free memory blocks
+*/
+//----------------------------------------------------------------------------
+/*! @property QMPool::blockSize
+Memory block size [bytes] held by this fixed-size pool.
+*/
+//----------------------------------------------------------------------------
+/*! @property QMPool::nTot
+Total number of memory blocks in this pool
+*/
+//----------------------------------------------------------------------------
+/*! @property QMPool::nFree
+Number of free memory blocks remaining in the pool at this point
+*/
+//----------------------------------------------------------------------------
+/*! @property QMPool::nMin
+Minimum number of free blocks ever present in this pool
+
+@details
+This attribute remembers the low watermark of the pool, which provides a valuable information for sizing event pools. (@sa QF_getPoolMin()).
+*/
+//----------------------------------------------------------------------------
+/*! @property QMPool::QMPool_init(QMPool * const me, void * const poolSto, uint_fast32_t const poolSize, uint_fast16_t const blockSize)
+Initializes the native QF memory pool
+
+@details
+Initialize a fixed block-size memory pool by providing it with the pool memory to manage, size of this memory, and the block size.
+
+@param[in,out] me  current instance pointer (see @ref oop)
+@param[in]     poolSto  pointer to the memory buffer for pool storage
+@param[in]     poolSize size of the storage buffer in bytes
+@param[in]     blockSize fixed-size of the memory blocks in bytes
+
+@precondition{qf_mem,100}
+- the memory block must be valid
+- the poolSize must fit at least one free block
+- the blockSize must not be too close to the top of the dynamic range
+
+@attention
+The caller of QMPool::init() must make sure that the `poolSto`
+pointer is properly **aligned**. In particular, it must be possible to
+efficiently store a pointer at the location pointed to by `poolSto`.
+Internally, the QMPool_init() function rounds up the block size
+`blockSize` so that it can fit an integer number of pointers.
+This is done to achieve proper alignment of the blocks within the pool.
+
+@note
+Due to the rounding of block size the actual capacity of the pool might
+be less than (`poolSize` / `blockSize`). You can check the capacity
+of the pool by calling the QF_getPoolMin() function.
+
+@note
+This function uses a potentially long critical section, because it is
+intended to be called only during the initialization of the system,
+when timing is not critical.
+
+@note
+Many QF ports use memory pools to implement the event pools.
+
+@trace
+- @tr{DVR-QP-MC4-R11_05}
+*/
+//----------------------------------------------------------------------------
+/*! @property QMPool::QMPool_get(QMPool * const me, uint_fast16_t const margin, uint_fast8_t const qs_id)
+Obtain a memory block from a memory pool.
+
+@details
+The function allocates a memory block from the pool and returns a pointer
+to the block back to the caller.
+
+@param[in,out] me      current instance pointer (see @ref oop)
+@param[in]     margin  the minimum number of unused blocks still available in the pool after the allocation.
+@param[in] qs_id   QS-id of this state machine (for QS local filter)
+
+@returns
+A pointer to a memory block or NULL if no more blocks are available in the memory pool.
+
+@note
+This function can be called from any task level or ISR level.
+
+@note
+The memory pool `me` must be initialized before any events can
+be requested from it. Also, the QMPool_get() function uses internally a
+QF critical section, so you should be careful not to call it from within
+a critical section when nesting of critical section is not supported.
+
+@attention
+An allocated block must be later returned back to the **same** pool from which it has been allocated.
+
+@trace
+- @tr{DVR-QP-MC4-R18_03}
+- @tr{DVR-QP-MC4-R11_05}
+- @tr{DVR-QP-MC4-R18_03}
+*/
+//----------------------------------------------------------------------------
+/*! @property QMPool::QMPool_put(QMPool * const me, void * const block, uint_fast8_t const qs_id)
+Recycles a memory block back to a memory pool.
+
+@details
+Recycle a memory block to the fixed block-size memory pool.
+
+@param[in,out] me  current instance pointer (see @ref oop)
+@param[in] block   pointer to the memory block that is being recycled
+@param[in] qs_id   QS-id of this state machine (for QS local filter)
+
+@precondition{qf_mem,200}
+- the number of free blocks cannot exceed the total # blocks
+- the block pointer must be in range for this pool.
+
+@attention
+The recycled block must be allocated from the **same** memory pool to which it is returned.
+
+@note
+This function can be called from any task level or ISR level.
+
+@trace
+- @tr{DVR-QP-MC4-R11_05}
+- @tr{DVR-QP-MC4-R18_03}
+*/

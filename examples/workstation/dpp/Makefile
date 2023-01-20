@@ -1,7 +1,7 @@
 ##############################################################################
 # Product: Makefile for QP/C for Windows and POSIX *HOSTS*
-# Last updated for version 7.2.0
-# Last updated on  2022-11-13
+# Last updated for version 7.3.0
+# Last updated on  2023-05-24
 #
 #                    Q u a n t u m  L e a P s
 #                    ------------------------
@@ -43,7 +43,7 @@
 # NOTE:
 # To use this Makefile on Windows, you will need the GNU make utility, which
 # is included in the QTools collection for Windows, see:
-#    http://sourceforge.net/projects/qpc/files/QTools/
+#    https://github.com/QuantumLeaps/qtools
 #
 
 #-----------------------------------------------------------------------------
@@ -56,10 +56,10 @@ PROJECT := dpp
 #
 
 # list of all source directories used by this project
-VPATH := . \
+VPATH := .
 
 # list of all include directories needed by this project
-INCLUDES := -I. \
+INCLUDES := -I.
 
 # location of the QP/C framework (if not provided in an env. variable)
 ifeq ($(QPC),)
@@ -152,8 +152,8 @@ INCLUDES += -I$(QPC)/include -I$(QP_PORT_DIR)
 #
 # NOTE:
 # GNU toolset (MinGW) is included in the QTools collection for Windows, see:
-#     https://www.state-machine.com/qtools
-# It is assumed that %QTOOLS%\bin directory is added to the PATH
+#     https://github.com/QuantumLeaps/qtools
+# It is assumed that $(QTOOLS)/bin directory is added to the PATH
 #
 CC    := gcc
 CPP   := g++
@@ -234,6 +234,11 @@ C_DEPS_EXT   := $(patsubst %.o,%.d, $(C_OBJS_EXT))
 CPP_OBJS_EXT := $(addprefix $(BIN_DIR)/, $(CPP_OBJS))
 CPP_DEPS_EXT := $(patsubst %.o,%.d, $(CPP_OBJS_EXT))
 
+# create $(BIN_DIR) if it does not exist
+ifeq ("$(wildcard $(BIN_DIR))","")
+$(shell $(MKDIR) $(BIN_DIR))
+endif
+
 #-----------------------------------------------------------------------------
 # rules
 #
@@ -243,7 +248,7 @@ CPP_DEPS_EXT := $(patsubst %.o,%.d, $(CPP_OBJS_EXT))
 all: $(TARGET_EXE)
 
 $(TARGET_EXE) : $(C_OBJS_EXT) $(CPP_OBJS_EXT)
-	$(CC) $(CFLAGS) $(QPC)/include/qstamp.c -o $(BIN_DIR)/qstamp.o
+	$(CC) $(CFLAGS) $(QPC)/src/qs/qstamp.c -o $(BIN_DIR)/qstamp.o
 	$(LINK) $(LINKFLAGS) $(LIB_DIRS) -o $@ $^ $(BIN_DIR)/qstamp.o $(LIBS)
 
 $(BIN_DIR)/%.d : %.c

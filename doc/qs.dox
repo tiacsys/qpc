@@ -1,0 +1,179 @@
+/*! @file include/qs.h
+@brief QS/C platform-independent public interface.
+
+@trace
+- @tr{DVP-QP-MC4-D04_08}
+*/
+
+//----------------------------------------------------------------------------
+/*! @struct QSpyId
+@brief QS ID type for applying local filtering
+*/
+//----------------------------------------------------------------------------
+/*! @struct QSpyFilter
+@brief QS type for output filters
+*/
+
+//============================================================================
+/*! @class QS
+@brief Software tracing instrumentation (QP/Spy)
+
+@details
+This class groups together QP/Spy services for software tracing instrumentation.
+*/
+//----------------------------------------------------------------------------
+/*! @property QS::QS_initBuf(uint8_t * const sto, uint_fast32_t const stoSize)
+Initialize the QS-TX data buffer
+
+@details
+This function should be called from QS_onStartup() to provide QS with the data buffer. The first argument `sto` is the address of the memory block, and the second argument `stoSize` is the size of this block [in bytes]. Currently the size of the QS buffer cannot exceed 64KB.
+
+@param[in] sto     pointer to the storage for the transmit buffer
+@param[in] stoSize size in [bytes] of the storage buffer
+
+@remark
+QS can work with quite small data buffers, but you will start losing data if the buffer is too small for the bursts of tracing activity. The right size of the buffer depends on the data production rate and the data output rate. QS offers flexible filtering to reduce the data production rate.
+
+@note
+If the data output rate cannot keep up with the production rate, QS will start overwriting the older data with newer data. This is consistent with the "last-is-best" QS policy. The record sequence counters and check sums on each record allow the QSPY host utility to easily detect any data loss.
+*/
+//----------------------------------------------------------------------------
+/*! @property QS::QS_getByte(void)
+Byte-oriented interface to the QS-TX data buffer
+
+@details
+This function delivers one byte at a time from the QS data buffer.
+
+@returns
+the byte in the least-significant 8-bits of the 16-bit return value if the byte is available. If no more data is available at the time, the function returns ::QS_EOD (End-Of-Data).
+
+@attention
+QS_getByte() should be called from with a critical section.
+*/
+//----------------------------------------------------------------------------
+/*! @property QS::QS_getBlock(uint16_t * const pNbytes)
+Block-oriented interface to the QS-TX data buffer
+
+@details
+This function delivers a contiguous block of data from the QS data buffer. The function returns the pointer to the beginning of the block, and writes the number of bytes in the block to the location pointed to by `pNbytes`. The argument `pNbytes` is also used as
+input to provide the maximum size of the data block that the caller can accept.
+
+@param[in,out] pNbytes  pointer to the number of bytes to send. On input, `pNbytes` specifies the maximum number of bytes that the function can provide. On output, `pNbytes` contains the actual number of bytes available.
+
+@returns
+if data is available, the function returns pointer to the contiguous block of data and sets the value pointed to by `pNbytes` to the # available bytes. If data is available at the time the function is called, the function returns NULL pointer and sets the value pointed to by `pNbytes` to zero.
+
+@note
+Only the NULL return from QS_getBlock() indicates that the QS buffer is empty at the time of the call. The non-NULL return often means that the block is at the end of the buffer and you need to call QS_getBlock() again to obtain the rest of the data that "wrapped around" to the beginning of the QS data buffer.
+
+@attention
+QS_getBlock() should be called from with a critical section.
+*/
+//----------------------------------------------------------------------------
+/*! @property QS::QS_filter_
+The instance of the QS_filter object (Singleton)
+
+@details
+The QS filters are separated out from the rest of the QS attributes because when Memory Isolation is used, the QS filters must be accessible in their own memory region.
+*/
+//----------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+
+
+
+
+//----------------------------------------------------------------------------
+/*! @def QS_CRIT_STAT
+Internal QS macro for defining the critical section status
+*/
+//----------------------------------------------------------------------------
+/*! @def QS_CRIT_ENTRY
+Internal macro for entering a critical section
+*/
+//----------------------------------------------------------------------------
+/*! @def QS_CRIT_EXIT
+Internal macro for exiting a critical section
+*/
+//----------------------------------------------------------------------------
+/*! @def QS_MEM_SYS
+Internal macro for configuring MPU for System access
+*/
+//----------------------------------------------------------------------------
+/*! @def QS_MEM_APP
+Internal macro for configuring MPU for Application access
+*/
+
+//============================================================================
+//============================================================================
+#ifdef Q_UTEST
+
+//============================================================================
+/*! @class QHsmDummy
+@brief Dummy HSM class for testing
+
+@details
+QHsmDummy is a test double for the role of "Orthogonal Components" HSM objects in QUTest unit testing.
+*/
+
+//============================================================================
+/*! @class QActiveDummy
+@brief Dummy Active Object for testing
+
+@details
+QActiveDummy is a test double for the role of collaborating active objects in QUTest unit testing.
+*/
+
+//----------------------------------------------------------------------------
+/*! @def QS_TEST_PROBE_DEF
+QS macro to define the Test-Probe for a given `fun_`
+
+@trace
+- @tr{DVP-QS-MC4-R11_01}
+- @tr{DVP-QS-MC4-R15_05}
+- @tr{DVP-QS-PCLP-823}
+*/
+//----------------------------------------------------------------------------
+/*! QS_TEST_PROBE
+QS macro to apply a Test-Probe
+
+@trace
+- @tr{DVR-QS-MC4-R11_05}
+*/
+//----------------------------------------------------------------------------
+/*! @def QS_TEST_PROBE_ID
+QS macro to apply a Test-Probe
+*/
+//----------------------------------------------------------------------------
+/*! @def QS_TEST_PAUSE
+QS macro to pause test execution and enter the test event-loop
+*/
+//============================================================================
+/*! @struct QS_TProbe
+@brief QUTest Test-Probe attributes
+
+@details
+Test-Probe allows dynamic modification of the behavior of the CUT (Code Under Test).
+*/
+
+#endif /* Q_UTEST */

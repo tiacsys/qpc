@@ -1,38 +1,41 @@
-/*============================================================================
-* QP/C Real-Time Embedded Framework (RTEF)
-* Copyright (C) 2005 Quantum Leaps, LLC. All rights reserved.
-*
-* SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-QL-commercial
-*
-* This software is dual-licensed under the terms of the open source GNU
-* General Public License version 3 (or any later version), or alternatively,
-* under the terms of one of the closed source Quantum Leaps commercial
-* licenses.
-*
-* The terms of the open source GNU General Public License version 3
-* can be found at: <www.gnu.org/licenses/gpl-3.0>
-*
-* The terms of the closed source Quantum Leaps commercial licenses
-* can be found at: <www.state-machine.com/licensing>
-*
-* Redistributions in source code must retain this top-level comment block.
-* Plagiarizing this software to sidestep the license obligations is illegal.
-*
-* Contact information:
-* <www.state-machine.com>
-* <info@state-machine.com>
-============================================================================*/
-/*!
-* @date Last updated on: 2022-10-02
-* @version Last updated for: @ref qpc_7_1_2
-*
-* @file
-* @brief QK/C port to ARM Cortex-R, TI-ARM toolset
-*/
-#ifndef QK_PORT_H
-#define QK_PORT_H
+//============================================================================
+// QP/C Real-Time Embedded Framework (RTEF)
+// Copyright (C) 2005 Quantum Leaps, LLC. All rights reserved.
+//
+// SPDX-License-Identifier: GPL-3.0-or-later OR LicenseRef-QL-commercial
+//
+// This software is dual-licensed under the terms of the open source GNU
+// General Public License version 3 (or any later version), or alternatively,
+// under the terms of one of the closed source Quantum Leaps commercial
+// licenses.
+//
+// The terms of the open source GNU General Public License version 3
+// can be found at: <www.gnu.org/licenses/gpl-3.0>
+//
+// The terms of the closed source Quantum Leaps commercial licenses
+// can be found at: <www.state-machine.com/licensing>
+//
+// Redistributions in source code must retain this top-level comment block.
+// Plagiarizing this software to sidestep the license obligations is illegal.
+//
+// Contact information:
+// <www.state-machine.com>
+// <info@state-machine.com>
+//============================================================================
+//!
+//! @date Last updated on: 2023-07-18
+//! @version Last updated for: @ref qpc_7_3_0
+//!
+//! @file
+//! @brief QK/C port to ARM Cortex-R, TI-ARM toolset
+//!
+#ifndef QK_PORT_H_
+#define QK_PORT_H_
 
-/* QK-specific Interrupt Request handler BEGIN */
+//! Check if the code executes in the ISR context
+#define QK_ISR_CONTEXT_() (QK_priv_.intNest != 0U)
+
+// QK-specific Interrupt Request handler BEGIN
 #define QK_IRQ_BEGIN(name_)              \
     void name_(void);                    \
     __asm(" .def " #name_ "\n"           \
@@ -67,18 +70,18 @@
     " POP {R0-R3, R12}\n"                \
     " RFEIA SP!\n");                     \
     void name_ ## _isr(void) {           \
-    ++QF_intNest_; {
+    ++QK_priv_.intNest; {
 
-/* QK-specific Interrupt Request handler END */
+// QK-specific Interrupt Request handler END
 #define QK_IRQ_END()              \
-    } --QF_intNest_;              \
-    if (QF_intNest_ == 0U) {      \
+    } --QK_priv_.intNest;         \
+    if (QK_priv_.intNest == 0U) { \
         if (QK_sched_() != 0U) {  \
             QK_activate_();       \
         }                         \
     }                             \
 }
 
-#include "qk.h" /* QK platform-independent public interface */
+#include "qk.h" // QK platform-independent public interface
 
-#endif /* QK_PORT_H */
+#endif // QK_PORT_H_

@@ -1,0 +1,124 @@
+/*! @file include/qk.h
+@brief QK/C (preemptive non-blocking kernel) platform-independent public interface.
+
+@trace
+- @tr{DVP-QP-MC4-D04_08}
+*/
+
+//============================================================================
+/*! @class QK
+@brief QK preemptive non-blocking kernel
+*/
+//----------------------------------------------------------------------------
+/*! @property QK::readySet
+Set of active-objects/threads that are ready to run in the QK kernel
+*/
+//----------------------------------------------------------------------------
+/*! @property QK::readySet_dis
+Duplicate inverse storage to mirror the QK readySet
+*/
+//----------------------------------------------------------------------------
+/*! @property QK::QK_sched_(void)
+QK scheduler finds the highest-priority AO ready to run
+
+@details
+The QK scheduler finds out the priority of the highest-priority AO that (1) has events to process and (2) has priority that is above the current priority.
+
+@returns
+The QF-priority of the next active object to activate, or zero if no activation of AO is needed.
+
+@precondition{qk,400}
+- check the internal integrity (duplicate inverse storage)
+
+@attention
+QK_sched_() must be always called with interrupts **disabled** and returns with interrupts **disabled**.
+*/
+//----------------------------------------------------------------------------
+/*! @property QK:: QK_activate_(void)
+QK activator activates the next active object. The activated AO preempts the currently executing AOs.
+
+@details
+QK_activate_() activates ready-to run AOs that are above the initial preemption-threshold.
+
+@precondition{qk,500}
+- QK_attr_.actPrio and QK_attr_.nextPrio must be in range
+
+@attention
+QK_activate_() must be always called with interrupts **disabled** and returns with interrupts **disabled**.
+*/
+//----------------------------------------------------------------------------
+/*! @property QK::QK_schedLock(uint_fast8_t const ceiling)
+QK selective scheduler lock
+
+@details
+This function locks the QK scheduler to the specified ceiling.
+
+@param[in] ceiling  preemption ceiling to which the QK scheduler needs to be locked
+
+@returns
+The previous QK Scheduler lock status, which is to be used to unlock the scheduler by restoring its previous lock status in QK_schedUnlock().
+
+@precondition{qk,100}
+- The QK scheduler lock cannot be called from an ISR
+
+@note
+QK_schedLock() must be always followed by the corresponding QK_schedUnlock().
+
+@sa QK_schedUnlock()
+
+@usage
+The following example shows how to lock and unlock the QK scheduler:
+@code{c}
+uint32_t BSP_random(void) {
+    uint32_rnd;
+
+    QSchedStatus lockStat = QK_schedLock(N_PHILO); // <== N_PHILO ceiling
+    . . . // access/manipulate the shared random seed resource
+    QK_schedUnlock(lockStat); // <=== unlock
+
+    return rnd;
+}
+@endcode
+*/
+//----------------------------------------------------------------------------
+/*! @property QK::QK_schedUnlock(QSchedStatus const stat)
+QK selective scheduler unlock
+
+@details
+This function unlocks the QK scheduler to the previous status.
+
+@param[in]   stat       previous QK Scheduler lock status returned from QK_schedLock()
+
+@precondition{qk,200}
+- the QK scheduler cannot be unlocked: from the ISR context
+- the current lock ceiling must be greater than the previous
+
+@note
+QK_schedUnlock() must always follow the corresponding QK_schedLock().
+
+@sa QK_schedLock()
+
+@usage
+The following example shows how to lock and unlock the QK scheduler:
+@code{c}
+uint32_t BSP_random(void) {
+    uint32_rnd;
+
+    QSchedStatus lockStat = QK_schedLock(N_PHILO); // <== N_PHILO ceiling
+    . . . // access/manipulate the shared random seed resource
+    QK_schedUnlock(lockStat); // <=== unlock
+
+    return rnd;
+}
+@endcode
+*/
+//----------------------------------------------------------------------------
+/*! @property QK::QK_onIdle(void)
+QK idle callback (customized in BSPs for QK)
+
+@details
+QK_onIdle() is called continuously by the QK idle loop. This callback gives the application an opportunity to enter a power-saving CPU mode, or perform some other idle processing.
+
+@note
+QK_onIdle() is invoked with interrupts enabled and must also return with interrupts enabled.
+*/

@@ -3214,7 +3214,7 @@
             <name>$PROJ_DIR$\..\..\..\..\..\src\qf\qf_time.c</name>
         </file>
         <file>
-            <name>$PROJ_DIR$\..\..\..\..\..\include\qstamp.c</name>
+            <name>$PROJ_DIR$\..\..\..\..\..\src\qs\qstamp.c</name>
         </file>
         <file>
             <name>$PROJ_DIR$\..\..\..\..\..\src\qv\qv.c</name>

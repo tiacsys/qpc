@@ -1,0 +1,1473 @@
+/*! @file include/qf.h
+@brief QF/C platform-independent public interface.
+
+@trace
+- @tr{DVP-QP-MC4-D04_08}
+*/
+
+//----------------------------------------------------------------------------
+/*! @typedef QTimeEvtCtr
+Data type to store the block-size defined based on the macro #QF_TIMEEVT_CTR_SIZE.
+
+@details
+The dynamic range of this data type determines the maximum block size that can be managed by the pool.
+*/
+//----------------------------------------------------------------------------
+/*! @typedef QPrioSpec
+Priority specification for Active Objects in QP.
+
+@details
+Active Object priorities in QP are integer numbers in the range [1..#QF_MAX_ACTIVE], whereas the special priority number 0 is reserved for the lowest-priority idle thread. The QP framework uses the *direct* priority numbering, in which higher numerical values denote higher urgency. For example, an AO with priority 32 has higher urgency than an AO with priority 23.
+
+::QPrioSpec allows an application developer to assign **two** priorities to a given AO (see also Q_PRIO()):
+
+1. The "QF-priority", which resides in the least-significant byte of the ::QPrioSpec data type. The "QF-priority" must be **unique** for each thread in the system and higher numerical values represent higher urgency (direct priority numbering).
+
+2. The "preemption-threshold" priority, which resides in the most-significant byte of the ::QPrioSpec data type. The second priority cannot be lower than the "QF-priority", but does NOT need to be unique.
+
+In the QP native preemptive kernels, like QK and QXK, the "preemption-threshold" priority is used as to implement the "preemption-threshold scheduling" (PTS). It determines the conditions under which a given thread can be *preempted* by other threads. Specifically, a given thread can be preempted only by another thread with a *higher* priority than the "preemption-threshold" of the original thread.
+
+![QF-priority and preemption-threshold relations](qp-prio.png)
+
+@note
+For backwards-compatibility, ::QPrioSpec data type might contain only the "QF-priority" component (and the "preemption-threshold" component left at zero). In that case, the "preemption-threshold" will be assumed to be the same as the "QF-priority". This corresponds exactly to the previous semantics of AO priority.
+
+@remark
+When QP runs on top of 3rd-party kernels/RTOSes or general-purpose operating systems, the second priority can have different meaning, depending on the specific RTOS/GPOS used.
+*/
+
+//============================================================================
+/*! @typedef QPSetBits
+Bitmask for the internal representation of QPSet elements
+*/
+//----------------------------------------------------------------------------
+/*! @property QF_LOG2(QPSetBits const bitmask)
+Log-base-2 calculation when hardware acceleration is NOT provided (#QF_LOG2 not defined).
+*/
+
+//============================================================================
+/*! @class QPSet
+@brief Set of Active Objects of up to #QF_MAX_ACTIVE elements.
+
+@details
+QPSet represents the set of Active Objects in the priority order. The set is capable of storing up to #QF_MAX_ACTIVE elements.
+*/
+//----------------------------------------------------------------------------
+/*! @property QPSet::bits
+Bitmask with a bit for each element
+*/
+//----------------------------------------------------------------------------
+/*! @property QPSet::QPSet_setEmpty(QPSet * const me)
+Make the priority set empty
+*/
+//----------------------------------------------------------------------------
+/*! @property QPSet::QPSet_isEmpty(QPSet const * const me)
+Find out whether the priority-set is empty.
+
+@return
+'true' if the priority set is empty.
+*/
+//----------------------------------------------------------------------------
+/*! @property QPSet::QPSet_notEmpty(QPSet const * const me)
+Find out whether the priority-set is NOT empty.
+
+@return
+'true' if the priority set is NOT empty.
+*/
+//----------------------------------------------------------------------------
+/*! @property QPSet::QPSet_hasElement(QPSet const * const me, uint_fast8_t const n)
+Find out whether the priority-set has element `n`.
+
+@return
+'true' if the priority set has the element `n`.
+*/
+//----------------------------------------------------------------------------
+/*! @property QPSet::QPSet_insert(QPSet * const me, uint_fast8_t const n)
+Insert element `n` into the priority-set (`n` = 1..#QF_MAX_ACTIVE)
+*/
+//----------------------------------------------------------------------------
+/*! @property QPSet::QPSet_remove(QPSet * const me, uint_fast8_t const n)
+Remove element `n` from the priority-set (`n` = 1..#QF_MAX_ACTIVE)
+*/
+//----------------------------------------------------------------------------
+/*! @property QPSet::QPSet_findMax(QPSet const * const me)
+Find the maximum element in the set, returns zero if the set is empty.
+
+@return
+The current maximum element `n`.
+*/
+//----------------------------------------------------------------------------
+/*! @property QPSet::QPSet_update_(QPSet const * const me, QPSet * const dis)
+Update the Duplicate Inverse Storage of QPSet (QP FuSa Subsystem)
+
+@param[in]     me  current instance pointer (see @ref oop)
+@param[in,out] dis pointer to the duplicate inverse storage
+*/
+//----------------------------------------------------------------------------
+/*! @property QPSet::QPSet_verify_(QPSet const * const me, QPSet const * const dis)
+Verify the Duplicate Inverse Storage (QP FuSa Subsystem)
+
+@param[in]  me  current instance pointer (see @ref oop)
+@param[in]  dis pointer to the duplicate inverse storage
+
+@returns
+'true' if this set matches the inverse copy and 'false' otherwise.
+*/
+
+//============================================================================
+/*! @struct QSubscrList
+@brief Subscriber List (for publish-subscribe)
+
+@details
+This data type represents a set of Active Objects that subscribe to a given signal. The set is represented as priority-set, where each bit corresponds to the unique QF-priority of an AO (see ::QPrioSpec).
+*/
+//----------------------------------------------------------------------------
+/*! @property QSubscrList::set
+The set of AOs that subscribed to a given event signal
+*/
+//----------------------------------------------------------------------------
+/*! @property QSubscrList::set_dis
+Duplicate inverse storage for the AO set
+*/
+//----------------------------------------------------------------------------
+/*! @typedef QSchedStatus
+The scheduler lock status used in some real-time kernels
+*/
+
+
+//============================================================================
+/*! @class QActive
+@brief Active object class (based on the QHsm implementation strategy)
+
+@details
+Active objects are encapsulated tasks (each containing an event queue and a state machine) that communicate with one another asynchronously by sending and receiving events. Within an active object, events are processed in a run-to-completion (RTC) fashion, while QF encapsulates
+all the details of thread-safe event exchange and queuing.
+
+QActive represents an active object that uses the QHsm-style implementation strategy for state machines. This strategy is tailored to manual coding, but it is also supported by the QM modeling tool. The resulting code is slower than in the ::QMsm-style implementation strategy.
+
+@note
+QActive is not intended to be instantiated directly, but rather serves as the abstract base class for derivation of active objects in the applications.
+
+@sa QMActive
+
+@trace
+- @tr{ARC-QP-02_30}
+
+@usage
+The following example illustrates how to derive an active object from ::QActive.
+@code{c}
+typedef struct {
+    QActive super;    // inherit QActive
+
+    QTimeEvt timeEvt; // to timeout the blinking
+} Blinky;
+. . .
+
+void Blinky_ctor(Blinky * const me) {
+    // constructor of the superclass <---
+    QActive_ctor(&me->super, Q_STATE_CAST(&Blinky_initial));
+
+    // constructor(s) of the members
+    QTimeEvt_ctorX(&me->timeEvt, &me->super, TIMEOUT_SIG, 0U);
+}
+@endcode
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive::eQueue
+Port-dependent event-queue type (often ::QEQueue)
+
+@details
+The type of the queue depends on the underlying operating system or a kernel. Many kernels support "message queues" that can be adapted to deliver QF events to the active object. Alternatively, QF provides a native event queue implementation that can be used as well.
+
+@note
+The native QF event queue is configured by defining the macro #QF_EQUEUE_TYPE as ::QEQueue.
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive::osObject
+Port-dependent per-thread object.
+
+@details
+This data might be used in various ways, depending on the QF port. In some ports me->osObject is used to block the calling thread when the native QF queue is empty. In other QF ports the OS-dependent object might be used differently.
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive::thread
+Port-dependent representation of the thread of the active object
+
+@details
+This data might be used in various ways, depending on the QF port. In some ports me->thread is used store the thread handle. In other ports me->thread can be a pointer to the Thread-Local-Storage (TLS).
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive::prio
+QF-priority [1..#QF_MAX_ACTIVE] of this AO.
+
+@sa ::QPrioSpec
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive::pthre
+Preemption-threshold [1..#QF_MAX_ACTIVE] of this AO.
+
+@sa ::QPrioSpec
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive::QActive_ctor(QActive * const me, QStateHandler const initial)
+
+QActive constructor (abstract base class)
+
+@param[in,out] me  current instance pointer (see @ref oop)
+@param[in] initial pointer to the top-most initial state-handler function in the derived active object
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive::QActive_start_(QActive * const me, QPrioSpec const prioSpec, QEvt const * * const qSto, uint_fast16_t const qLen, void * const stkSto, uint_fast16_t const stkSize, void const * const par)
+
+Starts execution of an active object and registers the object with the framework
+
+@details
+Starts execution of the AO and registers the AO with the framework.
+
+@param[in,out] me   current instance pointer (see @ref oop)
+@param[in] prioSpec priority specification for the AO (See ::QPrioSpec)
+@param[in] qSto     pointer to the storage for the ring buffer of the event queue
+@param[in] qLen     length of the event queue [# ::QEvt* pointers]
+@param[in] stkSto   pointer to the stack storage (might be NULL)
+@param[in] stkSize  stack size [bytes]
+@param[in] par      pointer to an extra parameter (might be NULL)
+
+@trace
+- @tr{DVR-QP-MC4-R08_13}
+
+@usage
+The following example shows starting an AO when a per-task stack is needed:
+@code{c}
+#include "qpc.h"
+
+int main() {
+    QF_init();  // initialize the framework and the underlying RT kernel
+    BSP_init(); // initialize the Board Support Package
+    . . .
+    // instantiate and start the active objects...
+    Blinky_ctor();
+    static QEvt const *l_blinkyQSto[10]; // Event queue storage for Blinky
+    QACTIVE_START(AO_Blinky,      // AO pointer to start
+                  1U,             // unique QP priority of the AO
+                  l_blinkyQSto,   // storage for the AO's queue
+                  Q_DIM(l_blinkyQSto), // length of the queue [entries]
+                  (void *)0,      // stack storage (not used in QK)
+                  0U,             // stack size [bytes] (not used in QK)
+                  (void *)0);     // initialization parameter (or 0)
+    . . .
+    return QF_run(); // run the QF application
+}
+@endcode
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive::QActive_stop(QActive * const me)
+Stops execution of an active object and removes it from the framework's supervision
+
+@param[in,out] me  current instance pointer (see @ref oop)
+
+@attention
+QActive_stop() must be called only from the AO that is about to stop its execution. By that time, any pointers or references to the AO are considered invalid (dangling) and it becomes illegal for the rest of the application to post events to the AO.
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive::QActive_post_(QActive * const me, QEvt const * const e, uint_fast16_t const margin, void const * const sender)
+Posts an event `e` directly to the event queue of the active object using the First-In-First-Out (FIFO) policy.
+
+@details
+Direct event posting is the simplest asynchronous communication method available in QF.
+
+@param[in,out] me current instance pointer (see @ref oop)
+@param[in] e      pointer to the event to be posted
+@param[in] margin number of required free slots in the queue after posting the event or ::QF_NO_MARGIN.
+@param[in] sender pointer to a sender object (used in QS only)
+
+@returns
+'true' (success) if the posting succeeded (with the provided margin) and 'false' (failure) when the posting fails.
+
+@precondition{qf_actq,102}
+- the event pointer must be valid
+- check internal event integrity (QP FuSa Subsystem)
+
+@postcondition{qf_actq,190}
+- the event must be posted if (`margin` == ::QF_NO_MARGIN)
+
+@attention
+For `margin` == ::QF_NO_MARGIN, this function will assert internally if the event posting fails. In that case, it is unnecessary to check the retrun value from this function.
+
+@note
+This function might be implemented differently in various QP/C ports. The provided implementation assumes that the ::QEQueue class is used for the ::QActive event queue.
+
+@trace
+- @tr{DVP-QS-MC4-R15_05}
+
+@usage
+@code{c}
+extern QActive * const AO_Table;
+
+QState Philoso_hungry(Philo * const me, QEvt const * const e) {
+    QState status;
+    switch (e->sig) {
+        case Q_ENTRY_SIG: {
+            TableEvt *pe = Q_NEW(TableEvt, HUNGRY_SIG); // dynamic alloc
+            pe->philNum = me->num;
+            QACTIVE_POST(AO_Table, &pe->super, me); // <===
+            status = Q_HANDLED();
+            break;
+        }
+        . . .
+        default: {
+            status = Q_SUPER(&QHsm_top);
+            break;
+        }
+    }
+    return status;
+}
+@endcode
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive::QActive_postLIFO_(QActive * const me, QEvt const * const e)
+Posts an event `e` directly to the event queue of the active object using the Last-In-First-Out (LIFO) policy.
+
+@details
+The LIFO policy should be used only for self-posting and with caution because it alters order of events in the queue.
+
+@param[in,out] me current instance pointer (see @ref oop)
+@param[in] e      pointer to the event to be posted
+
+@precondition{qf_actq,200}
+- for the QXK kernel, postLIFO() cannot be called from an
+  eXtened thread
+@precondition{qf_actq,201}
+- the queue must be able to accept the event (cannot overflow)
+
+@trace
+- @tr{DVP-QS-MC4-R15_05}
+
+@note
+This function might be implemented differently in various QP/C ports. The provided implementation assumes that the ::QEQueue class is used for the QActive event queue.
+
+@sa
+QActive_post()
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive:: QActive_get_(QActive * const me)
+Get an event from the event queue of an active object
+
+@details
+The behavior of this function depends on the kernel used in the QF port. For built-in kernels (Vanilla or QK) the function can be called only when the queue is not empty, so it doesn't block. For a blocking kernel/OS the function can block and wait for delivery of an event.
+
+@param[in,out] me current instance pointer (see @ref oop)
+
+@returns
+A pointer to the received event. The returned pointer is guaranteed to be valid (can't be NULL).
+
+@note
+This function might be implemented differently in various QP/C ports. The provided implementation assumes that the ::QEQueue class is used for the QActive event queue.
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive::QActive_subscribe(QActive const * const me, enum_t const sig)
+Subscribes for delivery of signal `sig` to the active object
+
+@details
+This function is part of the Publish-Subscribe event delivery mechanism available in QF. Subscribing to an event means that the framework will start posting all published events with a given signal `sig` to the event queue of the active object.
+
+@param[in,out] me current instance pointer (see @ref oop)
+@param[in]  sig   event signal to subscribe
+
+@precondition{qf_ps,300}
+- signal must be in range of subscribe scignals
+- subscriber AO priority must be in range
+- the AO must be registered (started)
+@precondition{qf_ps,302}
+- check the integrity of the subscriber set (QP FuSa Subsystem)
+
+@usage
+The following example shows how the Table active object subscribes to three signals in the initial transition:
+@code{c}
+QState Table_initial(Table * const me, QEvt const * const e) {
+    Q_UNUSED_PAR(e);
+
+    // subscribe to event signals...
+    QActive_subscribe(&me->super, (enum_t)HUNGRY_SIG);
+    QActive_subscribe(&me->super, (enum_t)DONE_SIG);
+    QActive_subscribe(&me->super, (enum_t)TERMINATE_SIG);
+
+    for (uint8_t n = 0U; n < N; ++n) {
+        me->fork[n] = FREE;
+        me->isHungry[n] = false;
+    }
+    return Q_TRAN(&Table_serving);
+}
+@endcode
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive::QActive_unsubscribe(QActive const * const me, enum_t const sig)
+Unsubscribes from the delivery of signal `sig` to the active object
+
+@details
+This function is part of the Publish-Subscribe event delivery mechanism available in QF. Un-subscribing from an event means that the framework will stop posting published events with a given signal `sig` to the event queue of the active object.
+
+@param[in,out] me current instance pointer (see @ref oop)
+@param[in]  sig   event signal to unsubscribe
+
+@precondition{qf_ps,400}
+- signal must be in range of subscribe scignals
+- subscriber AO priority must be in range
+- the AO must be registered (started)
+@precondition{qf_ps,402}
+- check the integrity of the subscriber set (QP FuSa Subsystem)
+
+@note
+Due to the latency of event queues, an active object should NOT assume that a given signal `sig` will never be dispatched to the state machine of the active object after un-subscribing from that signal. The event might be already in the queue, or just about to be posted and the un-subscribe operation will not flush such events.
+
+@note
+Un-subscribing from a signal that has never been subscribed in the first place is considered an error and QF will raise an assertion.
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive::QActive_unsubscribeAll(QActive const * const me)
+Unsubscribes from the delivery of all signals to the active object
+
+@details
+This function is part of the Publish-Subscribe event delivery mechanism available in QF. Un-subscribing from all events means that the framework will stop posting any published events to the event queue of the active object.
+
+@param[in,out] me current instance pointer (see @ref oop)
+
+@precondition{qf_ps,500}
+- subscriber AO priority must be in range
+- the AO must be registered (started)
+
+@note
+Due to the latency of event queues, an active object should NOT assume that no events will ever be dispatched to the state machine of the active object after un-subscribing from all events. The events might be already in the queue, or just about to be posted and the un-subscribe operation will not flush such events. Also, the alternative event-delivery mechanisms, such as direct event posting or time events, can be still delivered to the event queue of the active object.
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive::QActive_psInit(QSubscrList * const subscrSto, enum_t const maxSignal)
+Publish event to all subscribers of a given signal `e->sig`
+
+@details
+This function posts (using the FIFO policy) the event @a e to **all** active objects that have subscribed to the signal @a e->sig, which is called _multicasting_. The multicasting performed in this function is very efficient based on reference-counting inside the published event ("zero-copy" event multicasting). This function is designed to be callable from any part of the system, including ISRs, device drivers, and active objects.
+
+@note
+To avoid any unexpected re-ordering of events posted into AO queues, the event multicasting is performed with scheduler **locked**. However, the scheduler is locked only up to the priority level of the highest-priority subscriber, so any AOs of even higher priority, which did not subscribe to this event are *not* affected.
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive::QActive_publish_(QEvt const * const e, void const * const sender, uint_fast8_t const qs_id)
+Publish event to all subscribers of a given signal `e->sig`
+
+@details
+This function posts (using the FIFO policy) the event @a e to **all** active objects that have subscribed to the signal @a e->sig, which is called _multicasting_. The multicasting performed in this function is very efficient based on reference-counting inside the published event ("zero-copy" event multicasting). This function is designed to be callable from any part of the system, including ISRs, device drivers, and active objects.
+
+@precondition{qf_ps,200}
+- the published signal must be within the configured range
+@precondition{qf_ps,202}
+- check the integrity of the subscriber set (QP FuSa Subsystem)
+
+@note
+To avoid any unexpected re-ordering of events posted into AO queues, the event multicasting is performed with scheduler **locked**. However, the scheduler is locked only up to the priority level of the highest-priority subscriber, so any AOs of even higher priority, which did not subscribe to this event are *not* affected.
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive::QActive_defer(QActive const * const me, QEQueue * const eq, QEvt const * const e)
+Defer an event to a given separate event queue
+
+@details
+This function is part of the event deferral support. An active object uses this function to defer an event `e` to the QF-supported native event queue `eq`. QF correctly accounts for another outstanding reference to the event and will not recycle the event at the end of the RTC step. Later, the active object might recall one event at a time from the event queue.
+
+@remark
+An active object can use multiple event queues to defer events of different kinds.
+
+@param[in,out] me current instance pointer (see @ref oop)
+@param[in] eq  pointer to a "raw" thread-safe queue to recall an event from.
+@param[in] e   pointer to the event to be deferred
+
+@returns
+'true' (success) when the event could be deferred and 'false' (failure) if event deferral failed due to overflowing the queue.
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive::QActive_recall(QActive * const me, QEQueue * const eq)
+Recall a deferred event from a given event queue
+
+@details
+This function is part of the event deferral support. An active object uses this function to recall a deferred event from a given QF event queue. Recalling an event means that it is removed from the deferred event queue `eq` and posted (LIFO) to the event queue of the active object.
+
+@param[in,out] me current instance pointer (see @ref oop)
+@param[in]  eq  pointer to a "raw" thread-safe queue to recall
+                an event from.
+
+@returns
+'true' if an event has been recalled and 'false' if not.
+
+@note
+An active object can use multiple event queues to defer events of different kinds.
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive::QActive_flushDeferred(QActive const * const me, QEQueue * const eq)
+Flush the specified deferred queue `eq`
+
+@details
+This function is part of the event deferral support. An active object can use this function to flush a given QF event queue. The function makes sure that the events are not leaked.
+
+@param[in,out] me current instance pointer (see @ref oop)
+@param[in]  eq  pointer to a "raw" thread-safe queue to flush.
+
+@returns
+the number of events actually flushed from the queue.
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive::QActive_setAttr(QActive * const me, uint32_t attr1, void const * attr2)
+Generic setting of additional attributes (defined in some QP ports)
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive::QActive_thread_(QActive * const me)
+Thread routine for executing an active object `act` (defined some in QP ports)
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive::QActive_register_(QActive * const me)
+Register this active object to be managed by the framework
+
+@details
+This function adds a given active object to the active objects managed by the QF framework. It should not be called by the application directly, only through the function QActive::start().
+
+@param[in,out] me   current instance pointer (see @ref oop)
+
+@precondition{qf_qact,100}
+- the "QF-priority" of the AO must be in range (must be set before calling QActive_register_())
+- the "QF-priority" must not be already in use (unique priority)
+- the "QF-priority" must not exceed the "preemption-threshold"
+
+@postcondition{qf_qact,190}
+- the preceding pre-thre must not exceed the preemption-threshold
+- the preemption-threshold must not exceed the next preemption-threshold
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive::QActive_unregister_(QActive * const me)
+Un-register the active object from the framework
+
+@details
+This function un-registers a given active object from the active objects  managed by the QF framework. It should not be called by the QP ports.
+
+@param[in]  me  pointer to the active object to remove from the framework.
+
+@precondition{qf_qact,200}
+- the priority of the active object must not be zero and cannot
+exceed the maximum #QF_MAX_ACTIVE
+- the priority of the AO must be already registered.
+
+@note
+The active object that is removed from the framework can no longer participate in any event exchange.
+*/
+
+//----------------------------------------------------------------------------
+/*! @property QActive::QActive_subscrList_
+Static (one per-class) pointer to all subscriber AOs for a given event signal.
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive::QActive_maxPubSignal_
+Static (one per-class) maximum published signal (the size of the subscrList_ array)
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive::QActive_registry_
+Static (one per-class) array of registered active objects
+*/
+
+#ifdef QF_ISR_API
+//----------------------------------------------------------------------------
+/*! @property QActive::QActive_postFromISR_(QActive * const me, QEvt const * const e, uint_fast16_t const margin, void * par, void const * const sender)
+The "FromISR" variant used in the QP port to "FreeRTOS"
+*/
+//----------------------------------------------------------------------------
+/*! @property QActive::QActive_publishFromISR_(QEvt const * e, void * par, void const * sender)
+The "FromISR" variant used in the QP port to "FreeRTOS"
+*/
+#endif
+
+//============================================================================
+/*! @class QMActive
+@brief Active object class (based on QMsm implementation strategy)
+
+@details
+::QMActive represents an active object that uses the ::QMsm style state machine implementation strategy. This strategy requires the use of the QM modeling tool to generate state machine code automatically, but the code is faster than in the ::QHsm style implementation strategy and needs less run-time support (smaller event-processor).
+
+@note
+::QMActive is not intended to be instantiated directly, but rather serves as the base class for derivation of active objects in the application.
+
+@trace
+- @tr{REQ-QP-02_21}
+- @tr{ARC-QP-02_50}
+
+@usage
+The following example illustrates how to derive an active object from ::QMActive. Please note that the ::QActive member @c super is defined as the **first** member of the derived struct (see @ref oop). Please also note the call to the QMActive_ctor() in the Blinky subclass' constructor.
+@code{c}
+typedef struct {
+    QMActive super;   // <=== inherit QMActive
+
+    QTimeEvt timeEvt; // to timeout the blinking
+} Blinky;
+. . .
+
+void Blinky_ctor(Blinky * const me) {
+    // constructor of the superclass <===
+    QMActive_ctor(&me->super, Q_STATE_CAST(&Blinky_initial));
+
+    // constructor(s) of the members
+    QTimeEvt_ctorX(&me->timeEvt, &me->super, TIMEOUT_SIG, 0U);
+}
+@endcode
+*/
+//----------------------------------------------------------------------------
+/*! @property QMActive::QMActive_ctor(QMActive * const me, QStateHandler const initial)
+Constructor of ::QMActive class.
+
+@details
+Performs the first step of active object initialization by assigning the virtual pointer and calling the superclass constructor.
+
+@param[in,out] me       current instance pointer (see @ref oop)
+@param[in]     initial  pointer to the event to be dispatched to the MSM
+
+@note  Must be called only ONCE before QASM_INIT().
+*/
+
+//============================================================================
+/*! @class QTimeEvt
+@brief Time Event class
+
+@details
+Time events are special QF events equipped with the notion of time passage. The basic usage model of the time events is as follows. An active object allocates one or more ::QTimeEvt objects (provides the storage for them). When the active object needs to arrange for a timeout, it arms one of its time events to fire either just once (one-shot) or periodically. Each time event times out independently from the others, so a QF application can make multiple parallel timeout requests (from the same or different active objects). When QF detects that the appropriate moment has arrived, it inserts the time event directly into the recipient's event queue. The recipient then processes the time event just like any other event.
+
+Time events, as any other QF events derive from the ::QEvt base class. Typically, you will use a time event as-is, but you can also further derive more specialized time events from it by adding some more data members and/or specialized functions that operate on the specialized time events.
+
+Internally, the armed time events are organized into linked lists--one list for every supported ticking rate. These linked lists are scanned in every invocation of the QTIMEEVT_TICK_X() macro. Only armed (timing out) time events are in the list, so only armed time events consume CPU cycles.
+
+@trace
+- @tr{ARC-QP-02_60}
+
+@note
+QF manages the time events in the QTIMEEVT_TICK_X() macro, which must be called periodically, from the clock tick ISR or from other periodic source. QTIMEEVT_TICK_X() caYou might also use the special ::QTicker active object.
+
+@note
+Even though ::QTimeEvt is a subclass of ::QEvt, ::QTimeEvt instances can NOT be allocated dynamically from event pools. In other words, it is illegal to allocate ::QTimeEvt instances with the Q_NEW() or Q_NEW_X() macros.
+*/
+//----------------------------------------------------------------------------
+/*! @property QTimeEvt::next
+Link to the next time event in the list
+*/
+//----------------------------------------------------------------------------
+/*! @property QTimeEvt::act
+Active object that receives the time events
+*/
+//----------------------------------------------------------------------------
+/*! @property QTimeEvt::ctr
+Down-counter of the time event.
+
+@details
+The down-counter is decremented by 1 in every QTimeEvt_tick_() call. The time event fires (gets posted or published) when the down-counter reaches zero.
+*/
+//----------------------------------------------------------------------------
+/*! @property QTimeEvt::interval
+Interval for periodic time event (zero for one-shot time event)
+
+@details
+The value of the interval is re-loaded to the internal down-counter when the time event expires, so that the time event keeps timing out periodically.
+*/
+//----------------------------------------------------------------------------
+/*! @property QTimeEvt::QTimeEvt_ctorX(QTimeEvt * const me, QActive * const act, enum_t const sig, uint_fast8_t const tickRate)
+The "extended" constructor to initialize a Time Event.
+
+@details
+When creating a time event, you must commit it to a specific active object `act`, tick rate `tickRate` and event signal `sig`. You cannot change these attributes later.
+
+@param[in,out] me   current instance pointer (see @ref oop)
+@param[in] act      pointer to the active object associated with this time event. The time event will post itself to this AO.
+@param[in] sig      signal to associate with this time event.
+@param[in] tickRate system clock tick rate to associate with this time event in the range [0..15].
+@precondition{qf_time,300}
+- the signal `sig` must be valid
+- the tick rate `tickRate` must be in range
+
+@note
+You should call QTimeEvt_ctorX() exactly once for every Time Event object **before** arming the Time Event. The ideal place for calling QTimeEvt_ctorX() is the constructor of the associated AO.
+*/
+//----------------------------------------------------------------------------
+/*! @property QTimeEvt::QTimeEvt_armX(QTimeEvt * const me, QTimeEvtCtr const nTicks, QTimeEvtCtr const interval)
+Arm a time event (extended version for one shot or periodic time event)
+
+@details
+Arms a time event to fire in a specified number of clock ticks and with a specified interval. If the interval is zero, the time event is armed for one shot ('one-shot' time event). When the timeout expires, the time event gets directly posted (using the FIFO policy) into the event queue of the host active object. After posting, a one-shot time event gets automatically disarmed while a periodic time event (interval != 0) is automatically re-armed.
+
+A time event can be disarmed at any time by calling QTimeEvt_disarm(). Also, a time event can be re-armed to fire in a different number of clock ticks by calling the QTimeEvt_rearm().
+
+@param[in,out] me     current instance pointer (see @ref oop)
+@param[in]     nTicks number of clock ticks (at the associated rate) to rearm the time event with.
+@param[in]     interval interval (in clock ticks) for periodic time event.
+
+@precondition{qf_time,400}
+- the host AO must be valid,
+- the time eveht must be disarmed,
+- the number of clock ticks cannot be zero,
+- the signal must be valid.
+
+@attention
+Arming an already armed time event is __not__ allowed and is considered a programming error. The QP/C framework will assert if it detects an attempt to arm an already armed time event.
+
+@trace
+- @tr{DVR-QP-MC4-R11_05}
+
+@usage
+The following example shows how to arm a periodic time event as well as one-shot time event from a state machine of an active object:
+@code{c}
+QState Game_show_logo(Tunnel * const me, QEvt const * const e) {
+    QState status_;
+    switch (e->sig) {
+        case Q_ENTRY_SIG: {
+            // arm periodic time event
+            QTimeEvt_armX(&me->blinkTimeEvt,     // <===
+                          BSP_TICKS_PER_SEC/2U,  // one-time delay
+                          BSP_TICKS_PER_SEC/2U); // interva
+            // arm a one-shot time event
+            QTimeEvt_armX(&me->screenTimeEvt,
+                          BSP_TICKS_PER_SEC*5U,  // one-time delay
+                          0U);      // interval (0 == no interval)
+            . . .
+            status_ = Q_HANDLED();
+            break;
+        }
+        . . .
+@endcode
+*/
+//----------------------------------------------------------------------------
+/*! @property QTimeEvt:: QTimeEvt_disarm(QTimeEvt * const me)
+Disarm a time event.
+
+@details
+Disarm the time event so it can be safely reused.
+
+@remark
+Disarming an already disarmed time event is fine.
+
+@param[in,out] me   current instance pointer (see @ref oop)
+
+@returns
+'true' if the time event was truly disarmed, that is, it was running. The return of 'false' means that the time event was not truly disarmed, because it was not running. The 'false' return is only possible for one-shot time events that have been automatically disarmed upon expiration. In this case the 'false' return means that the time event has already been posted or published and should be expected in the active object's state machine.
+*/
+//----------------------------------------------------------------------------
+/*! @property QTimeEvt::QTimeEvt_rearm(QTimeEvt * const me, QTimeEvtCtr const nTicks)
+Rearm a time event.
+
+@details
+Rearms a time event with a new number of clock ticks. This function can be used to adjust the current period of a periodic time event or to prevent a one-shot time event from expiring (e.g., a watchdog time event). Rearming a periodic timer leaves the interval unchanged and is a convenient method to adjust the phasing of a periodic time event.
+
+@param[in,out] me  current instance pointer (see @ref oop)
+@param[in] nTicks  number of clock ticks (at the associated rate) to rearm the time event with.
+
+@returns
+'true' if the time event was running as it was re-armed. The 'false' return means that the time event was not truly rearmed because it was not running. The 'false' return is only possible for one-shot time events that have been automatically disarmed upon expiration. In this case the
+'false' return means that the time event has already been posted or published and should be expected in the active object's state machine.
+
+@precondition{qf_time,600}
+- AO must be valid
+- tick rate must be in range
+- nTicks must not be zero,
+- the signal of this time event must be valid
+
+@trace
+- @tr{DVR-QP-MC4-R11_05}
+*/
+//----------------------------------------------------------------------------
+/*! @property QTimeEvt::QTimeEvt_wasDisarmed(QTimeEvt * const me)
+Check the "was disarmed" status of a time event.
+
+@details
+Useful for checking whether a one-shot time event was disarmed in the QTimeEvt_disarm() operation.
+
+@param[in,out] me   current instance pointer (see @ref oop)
+
+@returns
+'true' if the time event was truly disarmed in the last QTimeEvt_disarm() operation. The 'false' return means that the time event was not truly disarmed, because it was not running at that time. The 'false' return is only possible for one-shot time events that have been automatically disarmed
+upon expiration. In this case the 'false' return means that the time event has already been posted or published and should be expected in the active object's event queue.
+
+@note
+This function has a **side effect** of setting the "was disarmed" status, which means that the second and subsequent times this function is called the function will return 'true'.
+*/
+//----------------------------------------------------------------------------
+/*! @property QTimeEvt::QTimeEvt_currCtr(QTimeEvt const * const me)
+Get the current value of the down-counter of a time event.
+
+@details
+Useful for checking how many clock ticks (at the tick rate associated with the time event) remain until the time event expires.
+
+@param[in,out] me   current instance pointer (see @ref oop)
+
+@returns
+For an armed time event, the function returns the current value of the down-counter of the given time event. If the time event is not armed, the function returns 0.
+*/
+//----------------------------------------------------------------------------
+/*! @property QTimeEvt::QTimeEvt_tick_(uint_fast8_t const tickRate, void const * const sender)
+Processes all armed time events at every clock tick.
+
+@details
+This internal helper function processes all armed ::QTimeEvt objects associated wit the tick rate `tickRate`.
+
+This function must be called periodically from a time-tick ISR or from a task so that QF can manage the timeout events assigned to the given system clock tick rate.
+
+@param[in] tickRate  clock tick rate serviced in this call [1..15].
+@param[in] sender    pointer to a sender object (only for QS tracing)
+
+@note
+this function should be called only via the macro QTIMEEVT_TICK_X().
+
+@note
+The calls to QTimeEvt_tick_() with different `tickRate` parameter can preempt each other. For example, higher clock tick rates might be serviced from interrupts while others from tasks (active objects).
+
+@trace
+- @tr{DVR-QP-MC4-R11_05}
+*/
+//----------------------------------------------------------------------------
+/*! @property QTimeEvt::QTimeEvt_tick1_(uint_fast8_t const tickRate, void const * const sender)
+Processes one clock tick for QUTest
+*/
+//----------------------------------------------------------------------------
+/*! @property QTimeEvt::QTimeEvt_noActive(uint_fast8_t const tickRate)
+Check if any time events are active at a given clock tick rate.
+
+@param[in]  tickRate  system clock tick rate to find out about.
+
+@returns
+'true' if no time events are armed at the given tick rate and 'false' otherwise.
+
+@precondition{qf_time,800}
+- the tick rate must be in range
+
+@note
+This function should be called in critical section.
+*/
+//----------------------------------------------------------------------------
+/*! @property QTimeEvt::QTimeEvt_timeEvtHead_
+Array of heads of linked lists of time events, one for every clock tick rate
+*/
+
+//============================================================================
+/*! @class QTicker
+@brief "Ticker" Active Object class
+
+@details
+QTicker is an efficient active object specialized to process QF system
+clock tick at a specified tick rate [0..#QF_MAX_TICK_RATE].
+Placing system clock tick processing in an active object allows you
+to remove the non-deterministic QTIMEEVT_TICK_X() processing from the
+interrupt level and move it into the thread-level, where you can prioritize
+it as low as you wish.
+
+@usage
+The following example illustrates use of QTicker active objects:
+@code{c}
+// bsp.h -----------------
+extern QActive * const the_Ticker0; // "ticker" pointer for clock rate 0
+extern QActive * const the Ticker1; // "ticker" pointer for clock rate 1
+
+
+// bsp.c -----------------
+static QTicker l_ticker0; // "ticker" instance for clock rate 0
+QActive * const the_Ticker0 = &l_ticker0.super;
+
+static QTicker l_ticker1; // "ticker" instance for clock rate 1
+QActive * const the_Ticker1 = &l_ticker1.super;
+
+// clock tick ISR for tick rate 0
+void SysTick_Handler(void) {
+    . . .
+    QTICKER_TICK(the_Ticker0, &qs_tick0_id);
+    . . .
+}
+
+// clock tick ISR for tick rate 1
+void Timer0A_IRQHandler(void) {
+    . . .
+    QTICKER_TICK(the_Ticker1, &qs_tick1_id);
+    . . .
+}
+
+// main.c ---------------
+main () {
+    . . .
+    QACTIVE_START(the_Ticker0,
+                  1U, // priority
+                  0, 0, 0, 0, 0); // not used
+
+    QACTIVE_START(the_Ticker1,
+                  2U, // priority
+                  0, 0, 0, 0, 0); // not used
+    . . .
+}
+@endcode
+*/
+//----------------------------------------------------------------------------
+/*! @property QTicker::QTicker_ctor(QTicker * const me, uint_fast8_t const tickRate)
+Constructor of the QTicker Active Object class
+*/
+//----------------------------------------------------------------------------
+/*! @property QTicker::QTicker_tick_(QActive * const me, void const * const sender)
+Asynchronously trigger the QTicker active object to perform tick processing.
+
+@details
+This function only triggers the given "ticker" AO. The actual clock-tick processing happens in the thread context of the "ticker" AO, running at the configured priority level.
+*/
+
+//============================================================================
+/*! @class QF
+@brief QF Active Object Framework
+
+@details
+The QF "class" is only used for grouping all related QF services and contains only static (one per-class) members.
+*/
+//----------------------------------------------------------------------------
+/*! @property QF::QF_init(void)
+QF initialization
+
+@details
+Initializes QF and must be called exactly once before any other QF function. Typically, QF_init() is called from main() even before initializing the Board Support Package (BSP).
+
+@note
+QF_init() clears the internal QF variables, so that the framework can start correctly even if the startup code fails to clear the uninitialized data (as is required by the C Standard).
+
+@trace
+- @tr{DVR-QP-MC4-R11_08}
+*/
+//----------------------------------------------------------------------------
+/*! @property QF:: QF_stop(void)
+Invoked by the application layer to stop the QF framework and return control to the OS/Kernel (used in some QF ports).
+
+@details
+This function stops the QF application. After calling this function, QF attempts to gracefully stop the application. This graceful shutdown might take some time to complete. The typical use of this function is for terminating the QF application to return back to the operating system or for handling fatal errors that require shutting down (and possibly re-setting) the system.
+
+@attention
+After calling QF_stop() the application must terminate and cannot continue. In particular, QF_stop() is **not** intended to be followed by a call to QF_init() to "resurrect" the application.
+*/
+//----------------------------------------------------------------------------
+/*! @property QF::QF_run(void)
+Transfers control to QF to run the application.
+
+@details
+QF_run() is typically called from your startup code after you initialize the QF and start at least one active object with QACTIVE_START().
+
+@returns
+Typically in embedded systems QF_run() does not return, but in case QF runs on top of a General-Purpose OS (GPOS), QF_run() returns the error status with value 0 representing success.
+*/
+//----------------------------------------------------------------------------
+/*! @property QF::QF_getQueueMin(uint_fast8_t const prio)
+This function returns the minimum of free entries of the given event queue.
+
+@details
+Queries the minimum of free ever present in the given event queue of an active object with priority `prio`, since the active object was started.
+
+@note
+This function is available only when the native QF event queue implementation is used. Requesting the queue minimum of an unused priority level raises an assertion in the QF. (A priority level becomes used in QF after the call to the QActive_register_() function.)
+
+@param[in] prio  Priority of the active object, whose queue is queried
+
+@returns
+The minimum of free ever present in the given event queue of an active object with priority `prio`, since the active object was started.
+*/
+//----------------------------------------------------------------------------
+/*! @property QF::QF_onStartup(void)
+Startup QF callback.
+
+@details
+The purpose of the QF_onStartup() callback is to configure and enable hardware interrupts. The callback is invoked from QF_run(), right before starting the underlying real-time kernel. By that time, the application is considered ready to receive and service interrupts.
+
+This function is application-specific and is not implemented in QF, but rather in the Board Support Package (BSP) for the given application.
+*/
+//----------------------------------------------------------------------------
+/*! @property QF::QF_onCleanup(void)
+Cleanup QF callback.
+@static @public @memberof QF
+
+@details
+QF_onCleanup() is called in some QF ports before QF returns to the underlying real-time kernel or operating system.
+
+This function is strongly platform-specific and is not implemented in the QF, but either in the QF port or in the Board Support Package (BSP) for the given application. Some QF ports might not require implementing QF_onCleanup() at all, because many embedded applications don't have anything to exit to.
+*/
+//----------------------------------------------------------------------------
+/*! @property QF::QF_poolInit(void * const poolSto, uint_fast32_t const poolSize, uint_fast16_t const evtSize)
+Event pool initialization for dynamic allocation of events.
+
+@details
+This function initializes one event pool at a time and must be called exactly once for each event pool before the pool can be used.
+
+@param[in] poolSto  pointer to the storage for the event pool
+@param[in] poolSize size of the storage for the pool in bytes
+@param[in] evtSize  the block-size of the pool in bytes, which determines the maximum size of events that can be allocated from the pool.
+
+@precondition{qf_dyn,200}
+- the number of event-pools initialized so far must not exceed
+  the maximum #QF_MAX_EPOOL
+@precondition{qf_dyn,201}
+- except the firt event-pool 0, the event-size of the previously initialized event pool must not exceed the next event size.
+
+You might initialize many event pools by making many consecutive calls to the QF_poolInit() function. However, for the simplicity of the internal implementation, you must initialize event pools in the **ascending order** of the event size.
+
+@remark
+Many RTOSes provide fixed block-size heaps, a.k.a. memory pools that can be adapted for QF event-pools. In case the pools from the RTOS are not used, QF provides a native memory pool implementation (::QMPool). The macro #QF_EPOOL_TYPE_ determines the type of event pool used by a particular QF port.
+
+@note
+The actual number of events available in the pool might be actually less than (`poolSize` / `evtSize`) due to the internal alignment of the blocks that the pool might perform. You can always check the capacity of the pool by calling QF_getPoolMin().
+
+@note The dynamic allocation of events is optional, meaning that you might choose not to use mutable events. In that case calling QF_poolInit() and using up memory for the memory blocks is unnecessary.
+*/
+//----------------------------------------------------------------------------
+/*! @property QF::QF_poolGetMaxBlockSize(void)
+Obtain the block size of any registered event pools.
+
+@details
+Obtain the block size of any registered event pools
+*/
+//----------------------------------------------------------------------------
+/*! @property QF::QF_getPoolMin(uint_fast8_t const poolId)
+Obtain the minimum of free entries of the given event pool.
+
+@details
+This function obtains the minimum number of free blocks in the given event pool since this pool has been initialized by a call to QF_poolInit().
+
+@param[in] poolId  event pool ID in the range 1..max_pool, where max_pool is the number of event pools initialized with the function QF_poolInit().
+
+@returns
+the minimum number of unused blocks in the given event pool.
+
+@precondition{qf_dyn,400}
+- the poolId must be in range
+*/
+//----------------------------------------------------------------------------
+/*! @property QF::QF_newX_(uint_fast16_t const evtSize, uint_fast16_t const margin, enum_t const sig)
+Internal QF implementation of creating new mutable event.
+@static @private @memberof QF
+
+@details
+Allocates an event dynamically from one of the QF event pools.
+
+@param[in] evtSize the size (in bytes) of the event to allocate
+@param[in] margin  the number of un-allocated events still available in a given event pool after the allocation completes. The special value ::QF_NO_MARGIN means that this function will assert if allocation fails.
+@param[in] sig     the signal to be assigned to the allocated event
+
+@returns
+Pointer to the newly allocated event. This pointer can be NULL only if margin != #QF_NO_MARGIN and the event cannot be allocated with the specified margin still available in the given pool.
+
+@precondition{qf_dyn,300}
+- the event size must fit one of the initialized event pools
+
+@note
+The internal QF function QF_newX_() raises an assertion when the `margin` parameter is #QF_NO_MARGIN and allocation of the event turns out to be impossible due to event pool depletion, or incorrect (too big) size of the requested event.
+
+@note
+The application code should not call this function directly. The only allowed use is thorough the macros Q_NEW() or Q_NEW_X().
+*/
+//----------------------------------------------------------------------------
+/*! @property QF::QF_gc(QEvt const * const e)
+Recycle a mutable (mutable) event
+
+@details
+This function implements a simple garbage collector for the mutable events. Only mutable events are candidates for recycling. (A mutable event is one that is allocated from an event-pool, which is determined as non-zero QEVT_POOLID_(e)) Next, the function decrements the reference counter of the event (e->refCtr_), and recycles the event only if the counter drops to zero (meaning that no more references are outstanding for this event). The mutable event is recycled by returning it to the pool from which it was originally allocated.
+
+@param[in]  e  pointer to the event to recycle
+
+@note
+QF invokes the garbage collector at all appropriate contexts, when an event can become garbage (automatic garbage collection), so the application code should have no need to call QF_gc() directly. The QF_gc() function is exposed only for special cases when your application sends mutable events to the "raw" thread-safe queues (see ::QEQueue). Such queues are processed outside of QF and the automatic garbage collection is **NOT** performed for these events. In this case you need to call QF_gc() explicitly.
+
+@trace
+- @tr{DVR-QP-MC4-R11_08}
+*/
+//----------------------------------------------------------------------------
+/*! @property QF::QF_newRef_(QEvt const * const e, void const * const evtRef)
+Internal QF implementation of creating new event reference.
+
+@details
+Creates and returns a new reference to the current event e
+
+@param[in] e       pointer to the current event
+@param[in] evtRef  the event reference
+
+@returns
+The newly created reference to the event `e`
+
+@precondition{qf_dyn,500}
+- the event must be from a pool (mutable event)
+- the provided event reference must not be already in use
+
+@note
+The application code should not call this function directly. The only allowed use is thorough the macro Q_NEW_REF().
+*/
+//----------------------------------------------------------------------------
+/*! @property QF::QF_deleteRef_(void const * const evtRef)
+Internal QF implementation of deleting event reference.
+
+@details
+Deletes an existing reference to the event e
+
+@param[in] evtRef  the event reference
+
+@note
+The application code should not call this function directly. The only allowed use is thorough the macro Q_DELETE_REF().
+
+@trace
+- @tr{DVR-QP-MC4-R11_05}
+*/
+//----------------------------------------------------------------------------
+/*! @property QF::QF_onContextSw(QActive * prev, QActive * next)
+QF context switch callback used in built-in kernels (QV, QK, QXK)
+
+@details
+This callback function provides a mechanism to perform additional
+custom operations when one of the built-in kernels switches context
+from one thread to another.
+
+@param[in] prev   pointer to the previous thread (active object) (prev==0 means that `prev` was the idle loop)
+@param[in] next   pointer to the next thread (active object) (next==0) means that `next` is the idle loop)
+
+@attention
+QF_onContextSw() is invoked with interrupts **disabled** and must also return with interrupts **disabled**.
+
+@usage
+This callback is enabled by defining the macro #QF_ON_CONTEXT_SW.
+@code{c}
+#ifdef QF_ON_CONTEXT_SW
+// NOTE: the context-switch callback is called with interrupts DISABLED
+void QF_onContextSw(QActive *prev, QActive *next) {
+    if (next != (QActive *)0) {
+        MPU->CTRL = 0U; // disable the MPU
+
+        MPU_Region const * const region = (MPU_Region const *)next->thread;
+        MPU->RBAR = region[0].RBAR;
+        MPU->RASR = region[0].RASR;
+        MPU->RBAR = region[1].RBAR;
+        MPU->RASR = region[1].RASR;
+        MPU->RBAR = region[2].RBAR;
+        MPU->RASR = region[2].RASR;
+
+        MPU->CTRL = MPU_CTRL_ENABLE_Msk        // enable the MPU
+                    | MPU_CTRL_PRIVDEFENA_Msk; // enable background region
+        __ISB();
+        __DSB();
+    }
+}
+#endif // QF_ON_CONTEXT_SW
+@endcode
+*/
+
+//============================================================================
+/*! @def QF_NO_MARGIN
+Special value of margin that causes asserting failure in case event allocation or event posting fails
+*/
+//----------------------------------------------------------------------------
+/*! @def Q_PRIO
+Create a ::QPrioSpec object to specify priority of an AO or a thread
+
+@param[in] prio_  QF priority [1..QF_MAX_ACTIVE]
+@param[in] pthre_ Preemption threshold [1..QF_MAX_ACTIVE]
+
+@returns
+The combined 16-bit priority specification (`prio_` in bits [0..7] and `pthre_` in bits [8..15].
+*/
+/*${QF-macros::Q_NEW} ......................................................*/
+/*! @def Q_NEW
+Allocate a mutable event (case when ::QEvt is a POD)
+
+@details
+The macro calls the internal QF function QF::newX_() with margin == ::QF_NO_MARGIN, which causes an assertion when the event cannot be successfully allocated.
+
+@param[in] evtT_ event type (class name) of the event to allocate
+@param[in] sig_  signal to assign to the newly allocated event
+
+@returns
+A valid event pointer cast to the type `evtT_`.
+
+@remark
+If #Q_EVT_CTOR is defined, the Q_NEW() macro becomes variadic and takes all the arguments needed by the constructor of the event class being allocated. The constructor is then called by means
+of the placement-new operator.
+
+@trace
+- @tr{DVP-QP-MC4-R10_03}
+- @tr{DVP-QP-MC4-R11_03B}
+- @tr{DVP-QP-PCLP-826}
+
+@usage
+The following example illustrates dynamic allocation of an event:
+@code{c}
+extern QActive * const AO_Table;
+
+QState Philoso_hungry(Philo * const me, QEvt const * const e) {
+    QState status;
+    switch (e->sig) {
+        case Q_ENTRY_SIG: {
+            TableEvt *pe = Q_NEW(TableEvt, HUNGRY_SIG); // <===
+            pe->philNum = me->num;
+            QACTIVE_POST(AO_Table, &pe->super, me);
+            status = Q_HANDLED();
+            break;
+        }
+        . . .
+        default: {
+            status = Q_SUPER(&QHsm_top);
+            break;
+        }
+    }
+    return status;
+}
+@endcode
+*/
+//----------------------------------------------------------------------------
+/*! @def Q_NEW_X
+Non-asserting allocate a mutable event (case when ::QEvt is a POD).
+
+@details
+This macro allocates a new event and sets the pointer `e_`, while leaving at least `margin_` of events still available in the pool
+
+@param[out] e_     pointer to the newly allocated event
+@param[in] evtT_   event type (class name) of the event to allocate
+@param[in] margin_ number of events that must remain available in the given pool after this allocation. The special value ::QF_NO_MARGIN causes asserting failure in case event allocation fails.
+
+@param[in] sig_    signal to assign to the newly allocated event
+
+@returns
+An event pointer cast to the type `evtT_` or NULL if the event cannot be allocated with the specified `margin`.
+
+@remark
+If #Q_EVT_CTOR is defined, the Q_NEW_X() macro becomes variadic and takes all the arguments needed by the constructor of the event class being allocated. The constructor is then called by means of the placement-new operator.
+
+@trace
+- @tr{DVP-QP-MC4-R10_03}
+- @tr{DVP-QP-MC4-R11_03B}
+- @tr{DVP-QP-PCLP-826}
+
+@usage
+The following example illustrates mutable allocation of an event:
+@code{c}
+extern QActive * const AO_Table;
+
+    . . .
+    // typically inside a state machine action
+    TableEvt *pe;
+    Q_NEW_X(pe, TableEvt, 5U, HUNGRY_SIG); // <===
+    if (pe != (TableEvt *)0) {
+        pe->philNum = me->num;
+        QACTIVE_POST_X(AO_Table, &pe->super, 3U, me);
+    }
+@endcode
+*/
+//----------------------------------------------------------------------------
+/*! @def Q_NEW_REF
+Create a new reference of the current event `e`
+
+@details
+The current event processed by an active object is available only for the duration of the run-to-completion (RTC) step. After that step, the current event is no longer available and the framework might recycle (garbage-collect) the event. The macro Q_NEW_REF() explicitly creates
+a new reference to the current event that can be stored and used beyond the current RTC step, until the reference is explicitly recycled by means of the macro Q_DELETE_REF().
+
+@param[in,out] evtRef_  event reference to create
+@param[in]     evtT_    event type (class name) of the event reference
+
+@usage
+The example **defer** in the directory `examples/win32/defer` illustrates
+the use of Q_NEW_REF()
+*/
+/*${QF-macros::Q_DELETE_REF} ...............................................*/
+/*! @def Q_DELETE_REF
+Delete the event reference
+
+@details
+Every event reference created with the macro Q_NEW_REF() needs to be eventually deleted by means of the macro Q_DELETE_REF() to avoid leaking the event.
+
+@param[in,out] evtRef_  event reference to delete
+
+@usage
+The example **defer** in the directory `examples/win32/defer` illustrates the use of Q_DELETE_REF()
+*/
+//----------------------------------------------------------------------------
+/*! @def QACTIVE_START
+Start an Active Object.
+
+@details
+Starts execution of the AO and registers the AO with the framework.
+
+@param[in,out] me_   current instance pointer (see @ref oop)
+@param[in] prioSpec_ priority specification for the Active Object
+@param[in] qSto_     pointer to the storage for the ring buffer of the event queue (used only with the built-in ::QEQueue)
+@param[in] qLen_     length of the event queue (in events)
+@param[in] stkSto_   pointer to the stack storage (used only when per-AO stack is needed)
+@param[in] stkSize_  stack size (in bytes)
+@param[in] par_      pointer to the additional port-specific parameter(s) (might be NULL).
+
+@usage
+@code{c}
+#include "qpc.h"
+
+Q_DEFINE_THIS_FILE
+
+int main() {
+    QF_init();  // initialize the framework and the underlying RT kernel
+    BSP_init(); // initialize the Board Support Package
+    . . .
+    // instantiate and start the active objects...
+    Blinky_ctor();
+    static QEvt const *l_blinkyQSto[10]; // Event queue storage for Blinky
+    QACTIVE_START(AO_Blinky,      // AO pointer to start
+                  1U,             // unique QP priority of the AO
+                  l_blinkyQSto,   // storage for the AO's queue
+                  Q_DIM(l_blinkyQSto), // length of the queue [entries]
+                  (void *)0,      // stack storage (not used in QK)
+                  0U,             // stack size [bytes] (not used in QK)
+                  (void *)0);     // initialization parameter (or 0)
+    . . .
+    return QF_run(); // run the QF application
+}
+@endcode
+*/
+//----------------------------------------------------------------------------
+/*! @def QACTIVE_POST
+Invoke the direct event posting facility QActive_post_()
+
+@details
+This macro asserts if the queue overflows and cannot accept the event.
+
+@param[in,out] me_ current instance pointer (see @ref oop)
+@param[in] e_      pointer to the event to post
+@param[in] sender_ pointer to the sender object.
+
+@note
+The `sendedr_` parameter is actually only used when QS tracing is enabled (macro #Q_SPY is defined). When QS software tracing is disabled, the QACTIVE_POST() macro does not pass the `sender_` parameter, so the overhead of passing this extra parameter is entirely
+avoided.
+
+@note
+The pointer to the sender object is not necessarily a pointer to an active object. In fact, if QACTIVE_POST() is called from an interrupt or other context, you can create a unique object just to unambiguously identify the sender of the event.
+
+@sa QActive_post_()
+
+@trace
+- @tr{DVP-QP-MC4-R11_03A}
+- @tr{DVP-QP-PCLP-826}
+*/
+//----------------------------------------------------------------------------
+/*! @def QACTIVE_POST_X
+Invoke the direct event posting facility QActive_post_() without delivery guarantee
+
+@details
+This macro does not assert if the queue overflows and cannot accept the event with the specified margin of free slots remaining.
+
+@param[in,out] me_  current instance pointer (see @ref oop)
+@param[in]  e_      pointer to the event to post
+@param[in]  margin_ the minimum free slots in the queue, which must still be available after posting the event. The special value ::QF_NO_MARGIN causes
+asserting failure in case event posting fails.
+@param[in]  sender_ pointer to the sender object.
+
+@returns
+'true' if the posting succeeded, and 'false' if the posting failed due to insufficient margin of free entries available in the queue.
+
+@note
+The `sender_` parameter is actually only used when QS tracing is enabled (macro #Q_SPY is defined). When QS software tracing is disabled, the POST_X() macro does not pass the `sender_` parameter, so the overhead of passing this extra parameter is entirely avoided.
+
+@note
+The pointer to the sender object is not necessarily a pointer to an active object. In fact, if POST_X() is called from an interrupt or other context, you can create a unique object just to
+unambiguously identify the sender of the event.
+
+@trace
+- @tr{DVP-QP-MC4-R11_03A}
+- @tr{DVP-QP-PCLP-826}
+
+@usage
+@code{c}
+extern QActive * const AO_Table;
+    . . .
+    /* typically inside a state machine action
+    TableEvt *pe;
+    Q_NEW_X(pe, TableEvt, 5U, HUNGRY_SIG); // dynamic alloc, margin==5
+    if (pe != (TableEvt *)0) {
+        pe->philNum = me->num;
+        QACTIVE_POST_X(AO_Table, &pe->super, 3U, me); // <===
+    }
+    . . .
+@endcode
+*/
+//----------------------------------------------------------------------------
+/*! @def QACTIVE_POST_LIFO
+Post an event to an active object using the Last-In-First-Out (LIFO) policy.
+
+@param[in,out] me_   current instance pointer (see @ref oop)
+@param[in]     e_    pointer to the event to post
+
+@trace
+- @tr{DVP-QP-MC4-R11_03A}
+- @tr{DVP-QP-PCLP-826}
+*/
+//----------------------------------------------------------------------------
+/*! @def QACTIVE_PUBLISH
+Publish an event to all subscriber Active Objects.
+
+@details
+If #Q_SPY is defined, this macro calls QActive_publish_() with the `sender_` parameter to identify the publisher of the event. Otherwise, `sender_` is not used.
+
+@param[in] e_      pointer to the posted event
+@param[in] sender_ pointer to the sender object (actually used only when #Q_SPY is defined)
+
+@note
+The pointer to the `sender_` object is not necessarily a pointer to an active object. In fact, if QACTIVE_PUBLISH() is called from an interrupt or other context, you can create a unique object just to unambiguously identify the sender of the event.
+*/
+//----------------------------------------------------------------------------
+/*! @def QTIMEEVT_TICK_X
+Invoke the system clock tick processing QTimeEvt_tick_()
+
+@details
+This macro is the recommended way of invoking clock tick processing, because it provides the vital information for software tracing and avoids any overhead when the tracing is disabled.
+
+@param[in] tickRate_ clock tick rate to be serviced through this call
+@param[in] sender_   pointer to the sender object. This parameter is actually only used when QS software tracing is enabled (macro #Q_SPY is defined)
+
+@note
+When QS software tracing is disabled, the macro calls QTimeEvt_tick_() without the `sender` parameter, so the overhead of passing this extra parameter is entirely avoided.
+
+@note
+The pointer to the sender object is not necessarily a pointer to an active object. In fact, when QTIMEEVT_TICK_X() is called from an interrupt, you would create a unique object just to unambiguously identify the ISR as the sender of the time events.
+*/
+//----------------------------------------------------------------------------
+/*! @def QTIMEEVT_TICK
+Invoke the system clock tick processing for tick rate 0
+*/
+//----------------------------------------------------------------------------
+/*! @def QTICKER_TICK
+Asynchronously trigger the QTicker AO to perform tick processing.
+
+@details
+This macro is the recommended way to trigger clock tick processing, because it provides the vital information for software tracing and avoids any overhead when the tracing is disabled.
+
+@param[in] ticker_   pointer to the QTicker active object
+@param[in] sender_   pointer to the sender object. This parameter is actually only used when QS software tracing is enabled (macro #Q_SPY is defined)
+
+@note
+When QS software tracing is disabled, the macro calls QTicker_tick_() without the `sender` parameter, so the overhead of passing this extra parameter is entirely avoided.
+
+@note
+The pointer to the sender object is not necessarily a pointer to an active object. In fact, when QTICKER_TICK_X() is called from an interrupt, you would create a unique object just to unambiguously identify the ISR as the sender of the time events.
+*/
+//----------------------------------------------------------------------------
+/*! @def QF_CRIT_EXIT_NOP
+No-operation for exiting a critical section
+
+@details
+In some QF ports the critical section exit takes effect only on the next machine instruction. If this next instruction is another entry to a critical section, the critical section won't be really exited, but rather the two adjacent critical sections would be merged.
+The QF_CRIT_EXIT_NOP() macro contains minimal code required to prevent such merging of critical sections in such merging of critical sections in QF ports, in which it can occur.
+*/
+//----------------------------------------------------------------------------
+/*! @def QF_TICK_X
+Invoke the system clock tick processing
+
+@deprecated
+superseded by QTIMEEVT_TICK_X()
+*/
+//----------------------------------------------------------------------------
+/*! @def QF_TICK
+Invoke the system clock tick processing
+
+@deprecated
+superseded by QTIMEEVT_TICK()
+*/
+//----------------------------------------------------------------------------
+/*! QF_PUBLISH
+Publish an event to all subscriber Active Objects.
+
+@deprecated
+superseded by QACTIVE_PUBLISH()
+*/
+//----------------------------------------------------------------------------
+
