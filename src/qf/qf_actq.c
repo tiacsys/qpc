@@ -416,8 +416,8 @@ void QTicker_trig_(
     QEQueueCtr nTicks = me->eQueue.tail; // get volatile into temporary
 
     if (me->eQueue.frontEvt == (QEvt *)0) { // no tick events?
-        Q_REQUIRE_INCRIT(900, me->eQueue.nFree == 1U);
-        Q_REQUIRE_INCRIT(910, nTicks == 0U);
+        Q_REQUIRE_INCRIT(930, me->eQueue.nFree == 1U);
+        Q_REQUIRE_INCRIT(940, nTicks == 0U);
 
         me->eQueue.frontEvt = &tickEvt; // deliver event directly
         me->eQueue.nFree = 0U;
@@ -426,8 +426,6 @@ void QTicker_trig_(
     }
     else {
         Q_REQUIRE_INCRIT(950, (0U < nTicks) && (nTicks < 0xFFU));
-        Q_REQUIRE_INCRIT(960, me->eQueue.nFree == 0U);
-
     }
 
     ++nTicks; // account for one more tick event
