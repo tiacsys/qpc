@@ -40,7 +40,7 @@
 Q_DEFINE_THIS_MODULE("qf_ps")
 
 QSubscrList * QActive_subscrList_;
-enum_t QActive_maxPubSignal_;
+QSignal QActive_maxPubSignal_;
 
 //............................................................................
 //! @static @public @memberof QActive
@@ -49,7 +49,7 @@ void QActive_psInit(
     enum_t const maxSignal)
 {
     QActive_subscrList_   = subscrSto;
-    QActive_maxPubSignal_ = maxSignal;
+    QActive_maxPubSignal_ = (QSignal)maxSignal;
 
     // initialize the subscriber list
     for (enum_t sig = 0; sig < maxSignal; ++sig) {
@@ -69,12 +69,14 @@ void QActive_publish_(
     Q_UNUSED_PAR(qsId);
 #endif
 
-    QSignal const sig = e->sig;
-
     QF_CRIT_STAT
     QF_CRIT_ENTRY();
 
-    Q_REQUIRE_INCRIT(200, sig < (QSignal)QActive_maxPubSignal_);
+    Q_REQUIRE_INCRIT(200, e != (QEvt *)0);
+
+    QSignal const sig = e->sig;
+
+    Q_REQUIRE_INCRIT(230, sig < QActive_maxPubSignal_);
 
     QS_BEGIN_PRE(QS_QF_PUBLISH, qsId)
         QS_TIME_PRE();          // the timestamp
@@ -91,7 +93,7 @@ void QActive_publish_(
         // collector step (QF_gc()) decrements the reference counter and
         // recycles the event if the counter drops to zero. This covers the
         // case when the event was published without any subscribers.
-        Q_ASSERT_INCRIT(220, e->refCtr_ < (2U * QF_MAX_ACTIVE));
+        Q_ASSERT_INCRIT(240, e->refCtr_ < (2U * QF_MAX_ACTIVE));
         QEvt_refCtr_inc_(e);
     }
 
@@ -108,7 +110,7 @@ void QActive_publish_(
 
         QActive *a = QActive_registry_[p];
         // the AO must be registered with the framework
-        Q_ASSERT_INCRIT(230, a != (QActive *)0);
+        Q_ASSERT_INCRIT(250, a != (QActive *)0);
 
         QF_CRIT_EXIT();
 
@@ -132,7 +134,7 @@ void QActive_publish_(
 
             a = QActive_registry_[p];
             // the AO must be registered with the framework
-            Q_ASSERT_INCRIT(250, a != (QActive *)0);
+            Q_ASSERT_INCRIT(260, a != (QActive *)0);
 
             --lbound; // fixed loop bound
             Q_INVARIANT_INCRIT(270, lbound > 0U);
@@ -156,15 +158,14 @@ void QActive_publish_(
 void QActive_subscribe(QActive const * const me,
     enum_t const sig)
 {
-    uint_fast8_t const p = (uint_fast8_t)me->prio;
-
     QF_CRIT_STAT
     QF_CRIT_ENTRY();
 
-    Q_REQUIRE_INCRIT(300, Q_USER_SIG <= sig);
-    Q_REQUIRE_INCRIT(310, sig < QActive_maxPubSignal_);
-    Q_REQUIRE_INCRIT(320, (0U < p) && (p <= QF_MAX_ACTIVE));
-    Q_REQUIRE_INCRIT(330, (QActive_registry_[p] == me));
+    Q_REQUIRE_INCRIT(300, sig >= Q_USER_SIG);
+    Q_REQUIRE_INCRIT(310, (QSignal)sig < QActive_maxPubSignal_);
+
+    uint_fast8_t const p = (uint_fast8_t)me->prio;
+    Q_REQUIRE_INCRIT(330, (0U < p) && (p <= QF_MAX_ACTIVE));
 
     QS_BEGIN_PRE(QS_QF_ACTIVE_SUBSCRIBE, p)
         QS_TIME_PRE();    // timestamp
@@ -183,15 +184,15 @@ void QActive_subscribe(QActive const * const me,
 void QActive_unsubscribe(QActive const * const me,
     enum_t const sig)
 {
-    uint_fast8_t const p = (uint_fast8_t)me->prio;
-
     QF_CRIT_STAT
     QF_CRIT_ENTRY();
 
-    Q_REQUIRE_INCRIT(400, Q_USER_SIG <= sig);
-    Q_REQUIRE_INCRIT(410, sig < QActive_maxPubSignal_);
-    Q_REQUIRE_INCRIT(420, (0U < p) && (p <= QF_MAX_ACTIVE));
-    Q_REQUIRE_INCRIT(430, QActive_registry_[p] == me);
+    Q_REQUIRE_INCRIT(400, sig >= Q_USER_SIG);
+    Q_REQUIRE_INCRIT(410, (QSignal)sig < QActive_maxPubSignal_);
+
+    uint_fast8_t const p = (uint_fast8_t)me->prio;
+
+    Q_REQUIRE_INCRIT(430, (0U < p) && (p <= QF_MAX_ACTIVE));
 
     QS_BEGIN_PRE(QS_QF_ACTIVE_UNSUBSCRIBE, p)
         QS_TIME_PRE();    // timestamp
@@ -211,15 +212,14 @@ void QActive_unsubscribeAll(QActive const * const me) {
     QF_CRIT_STAT
     QF_CRIT_ENTRY();
 
-    uint_fast8_t const p = (uint_fast8_t)me->prio;
+    QSignal const maxPubSig = QActive_maxPubSignal_;
 
-    Q_REQUIRE_INCRIT(500, (0U < p) && (p <= QF_MAX_ACTIVE));
-    Q_REQUIRE_INCRIT(510, QActive_registry_[p] == me);
+    uint_fast8_t const p = (uint_fast8_t)me->prio;
+    Q_REQUIRE_INCRIT(520, (0U < p) && (p <= QF_MAX_ACTIVE));
 
     QF_CRIT_EXIT();
 
-    enum_t const maxPubSig = QActive_maxPubSignal_;
-    for (enum_t sig = Q_USER_SIG; sig < maxPubSig; ++sig) {
+    for (QSignal sig = Q_USER_SIG; sig < maxPubSig; ++sig) {
         QF_CRIT_ENTRY();
 
         if (QPSet_hasElement(&QActive_subscrList_[sig].set, p)) {
