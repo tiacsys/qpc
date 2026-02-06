@@ -130,7 +130,10 @@ void QEvt_update_(QEvt * const me);
 bool QEvt_verify_(QEvt const * const me);
 #endif
 
+#ifndef QEQUEUE_H_
+// NOTE must be consistent with "qequeue.h"
 typedef QEvt const * QEvtPtr;
+#endif
 
 #define QEVT_DYNAMIC           ((uint8_t)0)
 #define Q_EVT_CAST(class_)     ((class_ const *)(e))
